@@ -27,7 +27,7 @@ namespace Microsoft.Azure.SignalR
             ILogger<ServiceLifetimeManager<THub>> logger, AzureSignalRMarkerService marker)
             : base(serviceConnectionManager, protocolResolver)
         {
-#if NETSTANDARD2_0
+#if !NETCOREAPP3_0
             if (!marker.IsConfigured)
             {
                 throw new InvalidOperationException(MarkerNotConfiguredError);

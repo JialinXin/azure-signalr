@@ -2,7 +2,6 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Connections;
-using Microsoft.AspNetCore.Http.Endpoints;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Azure.SignalR.Common;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,6 +11,9 @@ using System.Text;
 
 namespace Microsoft.Azure.SignalR.Startup
 {
+#if NETCOREAPP3_0
+    using Microsoft.AspNetCore.Http.Endpoints;
+#endif
     internal class AzureSignalRStartupFilter : IStartupFilter
     {
         public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> build)
@@ -29,7 +31,7 @@ namespace Microsoft.Azure.SignalR.Startup
                 service.Start();
 
                 var handler = new NegotiateHandler2(app.ApplicationServices);
-
+#if NETCOREAPP3_0
                 // Plug logic in that will look at the current endpoint and hijack the negotiate request
                 app.Use(async (context, next) =>
                 {
@@ -68,6 +70,7 @@ namespace Microsoft.Azure.SignalR.Startup
                         writer.Reset();
                     }
                 });
+#endif
             };
         }
     }

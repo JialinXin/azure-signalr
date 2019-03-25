@@ -2,7 +2,6 @@
 using System.Linq;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.AspNetCore.SignalR;
 
 namespace Microsoft.Azure.SignalR.Startup
 {
