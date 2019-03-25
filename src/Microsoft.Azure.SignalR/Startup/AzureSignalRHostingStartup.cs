@@ -13,6 +13,7 @@ namespace Microsoft.Azure.SignalR.Startup
     {
         public void Configure(IWebHostBuilder builder)
         {
+#if NETCOREAPP3_0
             builder.ConfigureServices((context, services) =>
             {
                 if (!context.HostingEnvironment.IsDevelopment() || context.Configuration.GetSection("Azure:SignalR:Enabled").Get<bool>())
@@ -20,6 +21,7 @@ namespace Microsoft.Azure.SignalR.Startup
                     services.AddSignalR().AddAzureSignalR();
                 }
             });
+#endif
         }
     }
 }
