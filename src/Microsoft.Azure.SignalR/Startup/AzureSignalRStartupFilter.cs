@@ -6,8 +6,6 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.Azure.SignalR.Common;
 using Microsoft.Extensions.DependencyInjection;
 using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Microsoft.Azure.SignalR.Startup
 {
@@ -20,19 +18,15 @@ namespace Microsoft.Azure.SignalR.Startup
         {
             return app =>
             {
-                // We need to call this today because it throws if we didn't call this and called AddAzureSignalR
-                // That needs to be changed.
-                // app.UseAzureSignalR(r => { });
-
                 build(app);
 
                 // This can't be a hosted service because it needs to run after startup
                 var service = app.ApplicationServices.GetRequiredService<AzureSignalRHostedService>();
                 service.Start();
 
-                var handler = new NegotiateHandler2(app.ApplicationServices);
+                var handler = app.ApplicationServices.GetRequiredService<NegotiateHandler>();
 #if NETCOREAPP3_0
-                // Plug logic in that will look at the current endpoint and hijack the negotiate request
+                // redirect negotiate to signalr service
                 app.Use(async (context, next) =>
                 {
                     var hasHubMetadata = context.GetEndpoint()?.Metadata.GetMetadata<HubMetadata>();
