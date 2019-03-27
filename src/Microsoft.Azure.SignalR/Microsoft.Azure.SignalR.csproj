@@ -20,10 +20,6 @@
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="$(SystemIdentityModelTokensJwtPackageVersion)" />
     <PackageReference Include="Microsoft.AspNetCore.Http.Connections.Client" Version="$(MicrosoftAspNetCoreHttpConnectionsClientPackageVersion)" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR" Version="$(MicrosoftAspNetCoreSignalRPackageVersion)" />
-    <!--<PackageReference Include="Microsoft.AspNetCore.Routing" Version="2.2.2" />
-    <PackageReference Include="Microsoft.AspNetCore.Http" Version="2.2.2" />
-    <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.2.0" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="3.0.0-preview4.19171.4" />-->
   </ItemGroup>
   
   <!-- Copy the referenced Microsoft.Azure.SignalR.Common.dll into the package https://github.com/nuget/home/issues/3891#issuecomment-397481361 -->
@@ -39,7 +35,6 @@
   </Target>
   
   <ItemGroup Condition=" '$(TargetFramework)' == 'netcoreapp3.0'">
-    <!--<PackageReference Include="Microsoft.AspNetCore.App.Ref" Version="3.0.0-preview4-19172-03" />-->
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 

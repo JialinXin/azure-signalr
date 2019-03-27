@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.Hosting;
-using Microsoft.Azure.SignalR;
+﻿// Copyright (c) Microsoft. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Azure.SignalR.Startup;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,7 +11,7 @@ using Microsoft.Extensions.Hosting;
 
 namespace Microsoft.Azure.SignalR.Startup
 {
-    public class AzureSignalRHostingStartup : IHostingStartup
+    internal class AzureSignalRHostingStartup : IHostingStartup
     {
         public void Configure(IWebHostBuilder builder)
         {

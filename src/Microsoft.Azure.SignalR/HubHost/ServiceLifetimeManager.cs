@@ -27,6 +27,7 @@ namespace Microsoft.Azure.SignalR
             ILogger<ServiceLifetimeManager<THub>> logger, AzureSignalRMarkerService marker)
             : base(serviceConnectionManager, protocolResolver)
         {
+            // after core 3.0 UseAzureSignalR() is not required.
 #if !NETCOREAPP3_0
             if (!marker.IsConfigured)
             {

@@ -1,11 +1,13 @@
-﻿using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.Connections;
-using Microsoft.AspNetCore.SignalR;
-using Microsoft.Azure.SignalR.Common;
-using Microsoft.Extensions.DependencyInjection;
+﻿// Copyright (c) Microsoft. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+
 using System;
+using System.Collections.Generic;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Azure.SignalR.Startup
 {
@@ -18,15 +20,14 @@ namespace Microsoft.Azure.SignalR.Startup
         {
             return app =>
             {
+#if NETCOREAPP3_0
                 build(app);
 
                 // This can't be a hosted service because it needs to run after startup
                 var service = app.ApplicationServices.GetRequiredService<AzureSignalRHostedService>();
                 service.Start();
 
-                var handler = app.ApplicationServices.GetRequiredService<NegotiateHandler>();
-#if NETCOREAPP3_0
-                // redirect negotiate to signalr service
+                // Redirect negotiate to signalr service
                 app.Use(async (context, next) =>
                 {
                     var hasHubMetadata = context.GetEndpoint()?.Metadata.GetMetadata<HubMetadata>();
@@ -37,32 +38,15 @@ namespace Microsoft.Azure.SignalR.Startup
                         return;
                     }
 
-                    NegotiationResponse negotiateResponse = null;
-                    try
+                    // get auth attributes
+                    var authorizeAttributes = hasHubMetadata.HubType.GetCustomAttributes(typeof(AuthorizeAttribute), inherit: true);
+                    var authorizationData = new List<IAuthorizeData>();
+                    foreach (var attribute in authorizeAttributes)
                     {
-                        negotiateResponse = handler.Process(context, hasHubMetadata.HubType.Name);
-                    }
-                    catch (AzureSignalRAccessTokenTooLongException ex)
-                    {
-                        // Log.NegotiateFailed(_logger, ex.Message);
-                        context.Response.StatusCode = 413;
-                        await context.Response.WriteAsync(ex.Message);
-                        return;
+                        authorizationData.Add((AuthorizeAttribute)attribute);
                     }
 
-                    var writer = new MemoryBufferWriter();
-                    try
-                    {
-                        context.Response.ContentType = "application/json";
-                        NegotiateProtocol.WriteResponse(negotiateResponse, writer);
-                        // Write it out to the response with the right content length
-                        context.Response.ContentLength = writer.Length;
-                        await writer.CopyToAsync(context.Response.Body);
-                    }
-                    finally
-                    {
-                        writer.Reset();
-                    }
+                    await ServiceRouteHelper.RedirectToService(context, hasHubMetadata.HubType.Name, authorizationData);
                 });
 #endif
             };

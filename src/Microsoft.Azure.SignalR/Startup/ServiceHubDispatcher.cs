@@ -1,12 +1,15 @@
-﻿using Microsoft.AspNetCore.Connections;
-using Microsoft.Extensions.DependencyInjection;
+﻿// Copyright (c) Microsoft. All rights reserved.
+// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+
 using System;
+using Microsoft.AspNetCore.Connections;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Microsoft.Azure.SignalR.Startup
 {
-    public class ServiceHubDispatcher
+    internal class ServiceHubDispatcher
     {
-        // HACK: Get the dispatcher so that we can invoke it
+        // A late bound version of ServiceHubDispatcher<THub>.
         private readonly Type _serviceDispatcherType = typeof(ServiceOptions).Assembly.GetType("Microsoft.Azure.SignalR.ServiceHubDispatcher`1");
         private readonly IServiceProvider _serviceProvider;
 
