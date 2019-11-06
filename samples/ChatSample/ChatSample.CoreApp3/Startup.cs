@@ -12,7 +12,13 @@ namespace ChatSample.CoreApp3
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddMvc();
-            services.AddSignalR();
+            services.AddSignalR().AddAzureSignalR(options =>
+            {
+                options.ConnectionCount = 2;
+                options.Endpoints = new Microsoft.Azure.SignalR.ServiceEndpoint[] {
+                new Microsoft.Azure.SignalR.ServiceEndpoint("Endpoint=https://jixineastus2.service.signalr.net;AccessKey=EjRcwG0sQq3UNyfykUrN+assmIjSTsnfmCLE5f2U94s=;Version=1.0;"),
+                new Microsoft.Azure.SignalR.ServiceEndpoint("Endpoint=https://jixinuk.service.signalr.net;AccessKey=GAh6PWaM9AD/Z34zgqYjdaj78nurzD6cV+gSi98WMA8=;Version=1.0;")};
+            });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

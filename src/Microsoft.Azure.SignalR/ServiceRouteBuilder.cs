@@ -2,6 +2,7 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
+using System.Collections.Generic;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -17,6 +18,7 @@ namespace Microsoft.Azure.SignalR
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly RouteBuilder _routes;
+        public List<HubData> Hubs { get; }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ServiceRouteBuilder"/> class.
@@ -46,6 +48,7 @@ namespace Microsoft.Azure.SignalR
             // Get auth attributes
             var authorizationData = AuthorizeHelper.BuildAuthorizePolicy(typeof(THub));
             _routes.MapRoute(path + Constants.Path.Negotiate, c => ServiceRouteHelper.RedirectToService(c, typeof(THub).Name, authorizationData));
+            Hubs.Add(new HubData(typeof(THub)));
 
             Start<THub>();
         }
