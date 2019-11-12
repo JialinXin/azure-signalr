@@ -12,5 +12,17 @@ namespace Microsoft.Azure.SignalR
         ServiceEndpoint[] Endpoints { get; }
 
         IReadOnlyList<HubServiceEndpoint> GetEndpoints(string hub);
+
+        void AddServiceEndpoint(ServiceEndpoint serviceEndpoint);
+
+        void RemoveServiceEndpoint(ServiceEndpoint serviceEndpoint);
+
+        HubServiceEndpoint GenerateHubServiceEndpoint(string hub, ServiceEndpoint serviceEndpoint);
+
+        IMultiEndpointServiceConnectionContainer GetServiceConnectionContainer(string hub);
+
+        void AddServiceConnectionContainer(string hub, IMultiEndpointServiceConnectionContainer container);
+
+        IEnumerable<string> GetHubs();
     }
 }

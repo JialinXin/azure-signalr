@@ -6,6 +6,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.Azure.SignalR.Common;
+using Microsoft.Azure.SignalR.Common.Interfaces;
 using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Azure.SignalR
@@ -13,6 +14,7 @@ namespace Microsoft.Azure.SignalR
     internal abstract class ServiceEndpointManagerBase : IServiceEndpointManager
     {
         private readonly ConcurrentDictionary<string, IReadOnlyList<HubServiceEndpoint>> _endpointsPerHub = new ConcurrentDictionary<string, IReadOnlyList<HubServiceEndpoint>>();
+        private readonly ConcurrentDictionary<string, IMultiEndpointServiceConnectionContainer> _hubContainers = new ConcurrentDictionary<string, IMultiEndpointServiceConnectionContainer>();
 
         private readonly ILogger _logger;
 
@@ -63,6 +65,33 @@ namespace Microsoft.Azure.SignalR
             }).ToArray());
         }
 
+        public void AddServiceEndpoint(ServiceEndpoint endpoint)
+        {
+            foreach (var hubEndpoints in _endpointsPerHub)
+            {
+                var provider = GetEndpointProvider(endpoint);
+                var hubServiceEndpoint = new HubServiceEndpoint(hubEndpoints.Key, provider, endpoint);
+                var updatedHubEndpoints = hubEndpoints.Value.Append(hubServiceEndpoint).ToArray();
+                _endpointsPerHub.TryUpdate(hubEndpoints.Key, updatedHubEndpoints, hubEndpoints.Value);
+            }
+        }
+
+        public void RemoveServiceEndpoint(ServiceEndpoint endpoint)
+        {
+            foreach (var hubEndpoints in _endpointsPerHub)
+            {
+                // Make ConnectionString the key to match existing endpoints
+                var updatedHubEndpoints = hubEndpoints.Value.Where(x => x.ConnectionString != endpoint.ConnectionString).ToArray();
+                _endpointsPerHub.TryUpdate(hubEndpoints.Key, updatedHubEndpoints, hubEndpoints.Value);
+            }
+        }
+
+        public HubServiceEndpoint GenerateHubServiceEndpoint(string hub, ServiceEndpoint endpoint)
+        {
+            var provider = GetEndpointProvider(endpoint);
+            return new HubServiceEndpoint(hub, provider, endpoint);
+        }
+
         private static IEnumerable<ServiceEndpoint> GetEndpoints(IServiceEndpointOptions options)
         {
             if (options == null)
@@ -87,6 +116,29 @@ namespace Microsoft.Azure.SignalR
                     yield return endpoint;
                 }
             }
+        }
+
+        public IMultiEndpointServiceConnectionContainer GetServiceConnectionContainer(string hub)
+        {
+            if (_hubContainers.TryGetValue(hub, out var container))
+            {
+                return container;
+            }
+            return null;
+        }
+
+        public void AddServiceConnectionContainer(string hub, IMultiEndpointServiceConnectionContainer container)
+        {
+            if (!_hubContainers.TryAdd(hub, container))
+            {
+                // TODO: log or specific exception.
+                throw new Exception();
+            }
+        }
+
+        public IEnumerable<string> GetHubs()
+        {
+            return _hubContainers.Select(h => h.Key).ToList();
         }
 
         private static class Log

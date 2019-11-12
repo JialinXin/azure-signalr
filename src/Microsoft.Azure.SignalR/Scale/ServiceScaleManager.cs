@@ -1,38 +1,45 @@
-﻿using Microsoft.AspNetCore.Connections;
+﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.AspNetCore.Http;
 
 namespace Microsoft.Azure.SignalR
 {
-    internal class ServiceScaleManager: IServiceScaleManager
+    internal class ServiceScaleManager : IServiceScaleManager
     {
         private IServiceProvider _serviceProvider;
+        private IServiceEndpointManager _serviceEndpointManager;
+        private ILoggerFactory _loggerFactory;
 
-        public Task ScaleCompletionTask;
-
-        public ServiceScaleManager(IServiceProvider serviceProvider)
+        public ServiceScaleManager(IServiceProvider serviceProvider, ILoggerFactory loggerFactory)
         {
             _serviceProvider = serviceProvider;
+            _loggerFactory = loggerFactory;
+            _serviceEndpointManager = _serviceProvider.GetRequiredService<IServiceEndpointManager>();
         }
 
-        public Task AddServiceEndpoint(ServiceEndpoint endpoint)
+        public Task AddServiceEndpoint(ServiceEndpoint serviceEndpoint)
         {
-            // Set endpoint offline before connection completed.
-            endpoint.Online = false;
-            var serviceRouteBuilder = _serviceProvider.GetService<ServiceRouteBuilder>();
-            var hubs = serviceRouteBuilder.Hubs;
-            foreach (var hub in hubs)
-            {
-                ConnectionDelegate app = connectionContext => Task.CompletedTask;
-                var type = typeof(ServiceHubDispatcher<>).MakeGenericType(hub.HubType);
-                var startMethod = type.GetMethod("Start", new Type[] { typeof(ConnectionDelegate), typeof(Action<HttpContext>) });
-                object dispatcher = _serviceProvider.GetRequiredService(type);
+            // Add new endpoint to MultiServiceEndpoint container to enable server routing
+            AddEndpointToContainer(serviceEndpoint);
 
-                startMethod.Invoke(dispatcher, new object[] { app, null });
-            }
+            // Add new endpoint to ServiceEndpointManager to enable client negotiation
+            _serviceEndpointManager.AddServiceEndpoint(serviceEndpoint);
+
             return Task.CompletedTask;
+        }
+
+        private Task AddEndpointToContainer(ServiceEndpoint serviceEndpoint)
+        {
+            return Task.WhenAll(_serviceEndpointManager.GetHubs().Select(h => StartServiceConnectionAsync(h, serviceEndpoint)));
+        }
+
+        private async Task StartServiceConnectionAsync(string hub, ServiceEndpoint serviceEndpoint)
+        {
+            var container = _serviceEndpointManager.GetServiceConnectionContainer(hub);
+            var hubEndpoint = _serviceEndpointManager.GenerateHubServiceEndpoint(hub, serviceEndpoint);
+            await container.AddServiceEndpoint(hubEndpoint, _loggerFactory);
         }
 
         public void RemoveServiceEndpoint(ServiceEndpoint endpoint)

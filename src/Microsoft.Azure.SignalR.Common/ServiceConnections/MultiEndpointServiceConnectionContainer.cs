@@ -13,11 +13,13 @@ using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Azure.SignalR
 {
-    internal class MultiEndpointServiceConnectionContainer : IServiceConnectionContainer
+    internal class MultiEndpointServiceConnectionContainer : IMultiEndpointServiceConnectionContainer
     {
         private readonly IMessageRouter _router;
         private readonly ILogger _logger;
         private readonly IServiceConnectionContainer _inner;
+        private readonly IServiceConnectionFactory _serviceConnectionFactory;
+        private readonly int _connectionCount;
 
         private IReadOnlyList<HubServiceEndpoint> _endpoints;
 
@@ -52,6 +54,8 @@ namespace Microsoft.Azure.SignalR
         :this(hub, endpoint => CreateContainer(serviceConnectionFactory, endpoint, count, loggerFactory),
             endpointManager, router, loggerFactory)
         {
+            _serviceConnectionFactory = serviceConnectionFactory;
+            _connectionCount = count;
         }
 
         public IEnumerable<ServiceEndpoint> GetOnlineEndpoints()
@@ -69,6 +73,18 @@ namespace Microsoft.Azure.SignalR
             {
                 return new WeakServiceConnectionContainer(serviceConnectionFactory, count, endpoint, loggerFactory.CreateLogger<WeakServiceConnectionContainer>());
             }
+        }
+
+        public async Task AddServiceEndpoint(HubServiceEndpoint endpoint, ILoggerFactory loggerFactory)
+        {
+            // Add endpoint to current container to enable routing
+            var endpoints = _endpoints.ToList();
+            endpoints.Add(endpoint);
+            _endpoints = endpoints.AsReadOnly();
+            // Create service connections for the new endpoint
+            var connectionContainer = CreateContainer(_serviceConnectionFactory, endpoint, _connectionCount, loggerFactory);
+            // start service connection
+            await connectionContainer.StartAsync();
         }
 
         public ServiceConnectionStatus Status => throw new NotSupportedException();
