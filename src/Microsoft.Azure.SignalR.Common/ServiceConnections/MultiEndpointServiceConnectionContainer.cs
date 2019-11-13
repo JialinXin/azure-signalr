@@ -23,7 +23,7 @@ namespace Microsoft.Azure.SignalR
 
         private IReadOnlyList<HubServiceEndpoint> _endpoints;
 
-        public Dictionary<ServiceEndpoint, IServiceConnectionContainer> Connections { get; }
+        public Dictionary<ServiceEndpoint, IServiceConnectionContainer> Connections { get; internal set; } = new Dictionary<ServiceEndpoint, IServiceConnectionContainer>();
 
         public MultiEndpointServiceConnectionContainer(string hub, Func<HubServiceEndpoint, IServiceConnectionContainer> generator, IServiceEndpointManager endpointManager, IMessageRouter router, ILoggerFactory loggerFactory)
         {
@@ -47,6 +47,9 @@ namespace Microsoft.Azure.SignalR
                 _router = router ?? throw new ArgumentNullException(nameof(router));
                 Connections = _endpoints.ToDictionary(s => (ServiceEndpoint)s, s => generator(s));
             }
+
+            // save current container to provide scale required information
+            endpointManager.AddServiceConnectionContainer(hub, this);
         }
 
         public MultiEndpointServiceConnectionContainer(IServiceConnectionFactory serviceConnectionFactory, string hub,
@@ -83,6 +86,8 @@ namespace Microsoft.Azure.SignalR
             _endpoints = endpoints.AsReadOnly();
             // Create service connections for the new endpoint
             var connectionContainer = CreateContainer(_serviceConnectionFactory, endpoint, _connectionCount, loggerFactory);
+            // Update connection
+            Connections.Add(endpoint, connectionContainer);
             // start service connection
             await connectionContainer.StartAsync();
         }
