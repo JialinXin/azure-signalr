@@ -25,6 +25,8 @@ namespace Microsoft.Azure.SignalR
 
         public Dictionary<ServiceEndpoint, IServiceConnectionContainer> Connections { get; internal set; } = new Dictionary<ServiceEndpoint, IServiceConnectionContainer>();
 
+        private bool _needRouter => _endpoints.Count > 1;
+
         public MultiEndpointServiceConnectionContainer(string hub, Func<HubServiceEndpoint, IServiceConnectionContainer> generator, IServiceEndpointManager endpointManager, IMessageRouter router, ILoggerFactory loggerFactory)
         {
             if (generator == null)
@@ -37,15 +39,16 @@ namespace Microsoft.Azure.SignalR
             // provides a copy to the endpoint per container
             _endpoints = endpointManager.GetEndpoints(hub);
 
-            if (_endpoints.Count == 1)
-            {
-                _inner = generator(_endpoints[0]);
-            }
-            else
+            if (_needRouter)
             {
                 // router is required when endpoints > 1
                 _router = router ?? throw new ArgumentNullException(nameof(router));
                 Connections = _endpoints.ToDictionary(s => (ServiceEndpoint)s, s => generator(s));
+            }
+            else
+            {
+                _inner = generator(_endpoints[0]);
+                Connections.Add(_endpoints[0], _inner);
             }
 
             // save current container to provide scale required information
@@ -59,6 +62,7 @@ namespace Microsoft.Azure.SignalR
         {
             _serviceConnectionFactory = serviceConnectionFactory;
             _connectionCount = count;
+            _router = router;
         }
 
         public IEnumerable<ServiceEndpoint> GetOnlineEndpoints()
@@ -80,15 +84,16 @@ namespace Microsoft.Azure.SignalR
 
         public async Task AddServiceEndpoint(HubServiceEndpoint endpoint, ILoggerFactory loggerFactory)
         {
-            // Add endpoint to current container to enable routing
+            // Create service connections for the new endpoint
+            var connectionContainer = CreateContainer(_serviceConnectionFactory, endpoint, _connectionCount, loggerFactory);
+
+            // Add endpoint to current container and Connection to enable routing
             var endpoints = _endpoints.ToList();
             endpoints.Add(endpoint);
             _endpoints = endpoints.AsReadOnly();
-            // Create service connections for the new endpoint
-            var connectionContainer = CreateContainer(_serviceConnectionFactory, endpoint, _connectionCount, loggerFactory);
-            // Update connection
             Connections.Add(endpoint, connectionContainer);
-            // start service connection
+
+            // Start service connection
             await connectionContainer.StartAsync();
         }
 
@@ -98,7 +103,7 @@ namespace Microsoft.Azure.SignalR
         {
             get
             {
-                if (_inner != null)
+                if (!_needRouter)
                 {
                     return _inner.ConnectionInitializedTask;
                 }
@@ -110,7 +115,7 @@ namespace Microsoft.Azure.SignalR
 
         public Task StartAsync()
         {
-            if (_inner != null)
+            if (!_needRouter)
             {
                 return _inner.StartAsync();
             }
@@ -124,7 +129,7 @@ namespace Microsoft.Azure.SignalR
 
         public Task StopAsync()
         {
-            if (_inner != null)
+            if (!_needRouter)
             {
                 return _inner.StopAsync();
             }
@@ -138,7 +143,7 @@ namespace Microsoft.Azure.SignalR
 
         public Task WriteAsync(ServiceMessage serviceMessage)
         {
-            if (_inner != null)
+            if (!_needRouter)
             {
                 return _inner.WriteAsync(serviceMessage);
             }
@@ -148,7 +153,7 @@ namespace Microsoft.Azure.SignalR
 
         public async Task<bool> WriteAckableMessageAsync(ServiceMessage serviceMessage, CancellationToken cancellationToken = default)
         {
-            if (_inner != null)
+            if (!_needRouter)
             {
                 return await _inner.WriteAckableMessageAsync(serviceMessage, cancellationToken);
             }

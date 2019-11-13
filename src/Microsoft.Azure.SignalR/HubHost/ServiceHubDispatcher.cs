@@ -68,8 +68,6 @@ namespace Microsoft.Azure.SignalR
             var serviceConnectionFactory = new ServiceConnectionFactory(_serviceProtocol, _clientConnectionManager, connectionFactory, _loggerFactory, connectionDelegate, _clientConnectionFactory);
             serviceConnectionFactory.ConfigureContext = contextConfig;
             return new MultiEndpointServiceConnectionContainer(serviceConnectionFactory, hub, _options.ConnectionCount, _serviceEndpointManager, _router, _nameProvider, _loggerFactory);
-            // _serviceEndpointManager.AddServiceConnectionContainer(hub, multiServiceContainer);
-            // return multiServiceContainer;
         }
 
         private static class Log

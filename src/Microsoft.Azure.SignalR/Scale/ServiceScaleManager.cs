@@ -8,26 +8,33 @@ namespace Microsoft.Azure.SignalR
 {
     internal class ServiceScaleManager : IServiceScaleManager
     {
-        private IServiceProvider _serviceProvider;
         private IServiceEndpointManager _serviceEndpointManager;
         private ILoggerFactory _loggerFactory;
 
-        public ServiceScaleManager(IServiceProvider serviceProvider, ILoggerFactory loggerFactory)
+        public ServiceScaleManager(IServiceEndpointManager serviceEndpointManager, ILoggerFactory loggerFactory)
         {
-            _serviceProvider = serviceProvider;
             _loggerFactory = loggerFactory;
-            _serviceEndpointManager = _serviceProvider.GetRequiredService<IServiceEndpointManager>();
+            _serviceEndpointManager = serviceEndpointManager;
         }
 
+        // TODO: ability to configure route policy when add service endpoint
         public Task AddServiceEndpoint(ServiceEndpoint serviceEndpoint)
         {
-            // Add new endpoint to MultiServiceEndpoint container to enable server routing
-            AddEndpointToContainer(serviceEndpoint);
+            if (!IsExist(serviceEndpoint))
+            {
+                // Add new endpoint to MultiServiceEndpoint container to enable server routing
+                AddEndpointToContainer(serviceEndpoint);
 
-            // Add new endpoint to ServiceEndpointManager to enable client negotiation
-            _serviceEndpointManager.AddServiceEndpoint(serviceEndpoint);
+                // Add the new endpoint to ServiceEndpointManager to enable client negotiation
+                _serviceEndpointManager.AddServiceEndpoint(serviceEndpoint);
+            }
 
             return Task.CompletedTask;
+        }
+
+        public void RemoveServiceEndpoint(ServiceEndpoint endpoint)
+        {
+            throw new NotImplementedException();
         }
 
         private Task AddEndpointToContainer(ServiceEndpoint serviceEndpoint)
@@ -42,9 +49,10 @@ namespace Microsoft.Azure.SignalR
             await container.AddServiceEndpoint(hubEndpoint, _loggerFactory);
         }
 
-        public void RemoveServiceEndpoint(ServiceEndpoint endpoint)
+        private bool IsExist(ServiceEndpoint serviceEndpoint)
         {
-            throw new NotImplementedException();
+            // Check if endpoint already exists
+            return _serviceEndpointManager.Endpoints.Contains(serviceEndpoint);
         }
     }
 }
