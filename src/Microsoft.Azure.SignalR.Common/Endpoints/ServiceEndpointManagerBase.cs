@@ -12,12 +12,14 @@ namespace Microsoft.Azure.SignalR
 {
     internal abstract class ServiceEndpointManagerBase : IServiceEndpointManager
     {
+        // endpoints ready for negotiate
         private readonly ConcurrentDictionary<string, IReadOnlyList<HubServiceEndpoint>> _endpointsPerHub = new ConcurrentDictionary<string, IReadOnlyList<HubServiceEndpoint>>();
+        // endpoints ready for route
         private readonly ConcurrentDictionary<string, IMultiEndpointServiceConnectionContainer> _hubContainers = new ConcurrentDictionary<string, IMultiEndpointServiceConnectionContainer>();
 
         private readonly ILogger _logger;
 
-        public ServiceEndpoint[] Endpoints { get; }
+        public ServiceEndpoint[] Endpoints { get; internal set; }
 
         protected ServiceEndpointManagerBase(IServiceEndpointOptions options, ILogger logger) 
             : this(GetEndpoints(options), logger)
@@ -123,6 +125,8 @@ namespace Microsoft.Azure.SignalR
             {
                 return container;
             }
+
+            Log.MultiEndpointContainerNotFound(_logger, hub);
             return null;
         }
 
@@ -130,8 +134,7 @@ namespace Microsoft.Azure.SignalR
         {
             if (!_hubContainers.TryAdd(hub, container))
             {
-                // TODO: log or specific exception.
-                throw new Exception();
+                Log.MultiEndpointContainerAlreadyExists(_logger, hub);
             }
         }
 
@@ -145,9 +148,25 @@ namespace Microsoft.Azure.SignalR
             private static readonly Action<ILogger, int, string, string, Exception> _duplicateEndpointFound =
                 LoggerMessage.Define<int, string, string>(LogLevel.Warning, new EventId(1, "DuplicateEndpointFound"), "{count} endpoint configurations to '{endpoint}' found, use '{name}'.");
 
+            private static readonly Action<ILogger, string, Exception> _multiEndpointsContainerAlreadyExists =
+                LoggerMessage.Define<string>(LogLevel.Information, new EventId(2, "MultiEndpointsContainerAlreadyExists"), "MultiEndpointContainer for hub '{hub}' alreay exists.");
+
+            private static readonly Action<ILogger, string, Exception> _multiEndpointsContainerNotFound =
+                LoggerMessage.Define<string>(LogLevel.Error, new EventId(3, "MultiEndpointsContainerNotFound"), "MultiEndpointContainer for hub '{hub}' not found");
+
             public static void DuplicateEndpointFound(ILogger logger, int count, string endpoint, string name)
             {
                 _duplicateEndpointFound(logger, count, endpoint, name, null);
+            }
+
+            public static void MultiEndpointContainerAlreadyExists(ILogger logger, string hub)
+            {
+                _multiEndpointsContainerAlreadyExists(logger, hub, null);
+            }
+
+            public static void MultiEndpointContainerNotFound(ILogger logger, string hub)
+            {
+                _multiEndpointsContainerNotFound(logger, hub, null);
             }
         }
     }

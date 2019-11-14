@@ -1,11 +1,14 @@
 ﻿using Microsoft.Extensions.Logging;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace Microsoft.Azure.SignalR
 {
     interface IMultiEndpointServiceConnectionContainer : IServiceConnectionContainer
     {
-        Task AddServiceEndpoint(HubServiceEndpoint endpoint, ILoggerFactory loggerFactory);
+        bool AddServiceEndpoint(HubServiceEndpoint endpoint, ILoggerFactory loggerFactory);
+
+        IReadOnlyList<HubServiceEndpoint> HubEndpoints { get; }
     }
 }

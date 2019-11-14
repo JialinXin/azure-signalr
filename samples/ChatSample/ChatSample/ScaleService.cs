@@ -21,6 +21,7 @@ namespace ChatSample
         [HttpGet]
         public IActionResult Index()
         {
+            
             _serviceScaleManager.AddServiceEndpoint(new ServiceEndpoint("Endpoint=https://jixinuk.service.signalr.net;AccessKey=GAh6PWaM9AD/Z34zgqYjdaj78nurzD6cV+gSi98WMA8=;Version=1.0;"));
             return Ok();
         }

@@ -1,11 +1,12 @@
-﻿using System.Threading.Tasks;
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace Microsoft.Azure.SignalR
 {
     public interface IServiceScaleManager
     {
-        Task AddServiceEndpoint(ServiceEndpoint endpoint);
+        IReadOnlyList<ServiceEndpoint> AddServiceEndpoint(ServiceEndpoint endpoint);
 
-        void RemoveServiceEndpoint(ServiceEndpoint endpoint);
+        IReadOnlyList<ServiceEndpoint> RemoveServiceEndpoint(ServiceEndpoint endpoint);
     }
 }

@@ -21,11 +21,11 @@ namespace Microsoft.Azure.SignalR
         private readonly IServiceConnectionFactory _serviceConnectionFactory;
         private readonly int _connectionCount;
 
-        private IReadOnlyList<HubServiceEndpoint> _endpoints;
+        public IReadOnlyList<HubServiceEndpoint> HubEndpoints { get; internal set; }
 
         public Dictionary<ServiceEndpoint, IServiceConnectionContainer> Connections { get; internal set; } = new Dictionary<ServiceEndpoint, IServiceConnectionContainer>();
 
-        private bool _needRouter => _endpoints.Count > 1;
+        private bool _needRouter => HubEndpoints.Count > 1;
 
         public MultiEndpointServiceConnectionContainer(string hub, Func<HubServiceEndpoint, IServiceConnectionContainer> generator, IServiceEndpointManager endpointManager, IMessageRouter router, ILoggerFactory loggerFactory)
         {
@@ -37,18 +37,18 @@ namespace Microsoft.Azure.SignalR
             _logger = loggerFactory?.CreateLogger<MultiEndpointServiceConnectionContainer>() ?? throw new ArgumentNullException(nameof(loggerFactory));
 
             // provides a copy to the endpoint per container
-            _endpoints = endpointManager.GetEndpoints(hub);
+            HubEndpoints = endpointManager.GetEndpoints(hub);
 
             if (_needRouter)
             {
                 // router is required when endpoints > 1
                 _router = router ?? throw new ArgumentNullException(nameof(router));
-                Connections = _endpoints.ToDictionary(s => (ServiceEndpoint)s, s => generator(s));
+                Connections = HubEndpoints.ToDictionary(s => (ServiceEndpoint)s, s => generator(s));
             }
             else
             {
-                _inner = generator(_endpoints[0]);
-                Connections.Add(_endpoints[0], _inner);
+                _inner = generator(HubEndpoints[0]);
+                Connections.Add(HubEndpoints[0], _inner);
             }
 
             // save current container to provide scale required information
@@ -62,6 +62,7 @@ namespace Microsoft.Azure.SignalR
         {
             _serviceConnectionFactory = serviceConnectionFactory;
             _connectionCount = count;
+            // Always add default router for potential scale needed.
             _router = router;
         }
 
@@ -82,19 +83,33 @@ namespace Microsoft.Azure.SignalR
             }
         }
 
-        public async Task AddServiceEndpoint(HubServiceEndpoint endpoint, ILoggerFactory loggerFactory)
+        public bool AddServiceEndpoint(HubServiceEndpoint endpoint, ILoggerFactory loggerFactory)
         {
-            // Create service connections for the new endpoint
-            var connectionContainer = CreateContainer(_serviceConnectionFactory, endpoint, _connectionCount, loggerFactory);
+            // Router is required when endpoints > 1
+            if (_router == null)
+            {
+                throw new ArgumentNullException(nameof(_router));
+            }
 
-            // Add endpoint to current container and Connection to enable routing
-            var endpoints = _endpoints.ToList();
-            endpoints.Add(endpoint);
-            _endpoints = endpoints.AsReadOnly();
-            Connections.Add(endpoint, connectionContainer);
+            try
+            {
+                // Create service connections for the new endpoint
+                var connectionContainer = CreateContainer(_serviceConnectionFactory, endpoint, _connectionCount, loggerFactory);
 
-            // Start service connection
-            await connectionContainer.StartAsync();
+                // Add endpoint to current container and Connection to enable routing
+                var endpoints = HubEndpoints.ToList();
+                endpoints.Add(endpoint);
+                HubEndpoints = endpoints.AsReadOnly();
+                Connections.Add(endpoint, connectionContainer);
+
+                // Start service connection
+                _ = connectionContainer.StartAsync();
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
         }
 
         public ServiceConnectionStatus Status => throw new NotSupportedException();
@@ -182,7 +197,7 @@ namespace Microsoft.Azure.SignalR
 
         internal IEnumerable<ServiceEndpoint> GetRoutedEndpoints(ServiceMessage message)
         {
-            var endpoints = _endpoints;
+            var endpoints = HubEndpoints;
             switch (message)
             {
                 case BroadcastDataMessage bdm:
