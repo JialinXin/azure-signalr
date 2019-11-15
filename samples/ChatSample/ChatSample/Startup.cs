@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Azure.SignalR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace ChatSample
 {
@@ -19,6 +20,9 @@ namespace ChatSample
 
         public void ConfigureServices(IServiceCollection services)
         {
+            services.Configure<ScaleOptions>(Configuration.GetSection("AdditionalEndpoints"));
+            services.AddSingleton<IOptionsChangeTokenSource<ScaleOptions>>(new ConfigurationChangeTokenSource<ScaleOptions>(Options.DefaultName, Configuration));
+
             services.AddSignalR()
                     .AddAzureSignalR(options =>
                     {
@@ -26,6 +30,8 @@ namespace ChatSample
                         options.ConnectionCount = 1;
                     });
             services.AddMvc();
+            services.AddSingleton<ScaleService>();
+            //services.AddSingleton(typeof(IOptionsMonitor<>), typeof(IOptionsMonitor<>));
         }
 
         public void Configure(IApplicationBuilder app)
@@ -38,5 +44,6 @@ namespace ChatSample
                 routes.MapHub<BenchHub>("/bench");
             });
         }
+
     }
 }

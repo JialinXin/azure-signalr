@@ -33,8 +33,19 @@ namespace Microsoft.Azure.SignalR
                 (connectionString, endpoints) = GetEndpoint(configuration, Constants.ConnectionStringSecondaryKey);
             }
 
+            // Get additional endpoints
+            var endpoints1 = configuration.GetSection("AdditionalEndpoints")?
+                .GetChildren().Select(
+                c => new ServiceEndpoint
+                (
+                    c.GetSection("ConnectionString").Value,
+                    (EndpointType)Enum.Parse(typeof(EndpointType), c.GetSection("EndpointType").Value),
+                    c.GetSection("Name").Value
+                )).ToArray();
+
             _connectionString = connectionString;
-            _endpoints = endpoints;
+            _endpoints = endpoints1.Length > 0 ? endpoints.Union(endpoints1).Distinct().ToArray() : endpoints;
+            //_endpoints = endpoints;
         }
 
         public void Configure(ServiceOptions options)
