@@ -1,53 +1,121 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace Microsoft.Azure.SignalR
 {
     internal class ServiceScaleManager : IServiceScaleManager
     {
-        private IServiceEndpointManager _serviceEndpointManager;
-        private ILoggerFactory _loggerFactory;
+        private readonly IServiceEndpointManager _serviceEndpointManager;
+        private readonly IClientConnectionManager _clientConnectionManager;
+        private readonly ILoggerFactory _loggerFactory;
         private readonly ILogger _logger;
 
-        private bool _readyForClient { get; set; } = false;
+        private bool _inited = false;
 
-        public ServiceScaleManager(IServiceEndpointManager serviceEndpointManager, ILoggerFactory loggerFactory)
+        private IReadOnlyList<ServiceEndpoint> _store = new List<ServiceEndpoint>();
+
+        public ServiceScaleManager(IServiceEndpointManager serviceEndpointManager, 
+            IClientConnectionManager clientConnectionManager,
+            ILoggerFactory loggerFactory, 
+            IOptionsMonitor<ServiceOptions> optionsMonitor)
         {
             _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory)); ;
             _logger = loggerFactory?.CreateLogger<ServiceScaleManager>();
             _serviceEndpointManager = serviceEndpointManager;
+            _clientConnectionManager = clientConnectionManager;
+
+            OnChange(optionsMonitor.CurrentValue);
+            optionsMonitor.OnChange(OnChange);
+
+            _store = optionsMonitor.CurrentValue.Endpoints;
+            _inited = true;
         }
 
-        // TODO: ability to configure route policy when add service endpoint
-        public IReadOnlyList<ServiceEndpoint> AddServiceEndpoint(ServiceEndpoint serviceEndpoint)
+        public async Task<IReadOnlyList<ServiceEndpoint>> AddServiceEndpoint(ServiceEndpoint serviceEndpoint)
         {
             if (!_serviceEndpointManager.Endpoints.Contains(serviceEndpoint))
             {
                 // Add new endpoint to MultiServiceEndpoint container to enable server routing
                 var result = AddServiceEndpointToContainer(serviceEndpoint);
 
-                // Add the new endpoint to ServiceEndpointManager to enable client negotiation only when routing successfully added.
-                if (result.All(x => x))
+                // Add the new endpoint to ServiceEndpointManager to enable client negotiation 
+                // only when all routing are successfully added.
+                while (!result.All(x => x) || !IsEndpointStable())
                 {
-                    _serviceEndpointManager.AddServiceEndpoint(serviceEndpoint);
+                    await Task.Delay(TimeSpan.FromSeconds(10));
                 }
-                else
-                {
-                    Log.FailedAddingServiceEndpoint(_logger, serviceEndpoint.Name);
-                }
+                _serviceEndpointManager.AddServiceEndpoint(serviceEndpoint);
             }
 
             return _serviceEndpointManager.GetEndpoints(_serviceEndpointManager.GetHubs().FirstOrDefault());
         }
 
-        public IReadOnlyList<ServiceEndpoint> RemoveServiceEndpoint(ServiceEndpoint endpoint)
+        public IReadOnlyList<ServiceEndpoint> RemoveServiceEndpoint(ServiceEndpoint serviceEndpoint)
         {
-            throw new NotImplementedException();
+            if (!_serviceEndpointManager.Endpoints.Contains(serviceEndpoint))
+            {
+                // Remove from server negotiage first for new clients.
+                _serviceEndpointManager.RemoveServiceEndpoint(serviceEndpoint);
+
+                // Primary endpoint need to notice runtime to close clients
+                if (serviceEndpoint.EndpointType == EndpointType.Primary)
+                {
+                    var result = ShutdownServiceEndpoint(serviceEndpoint);
+                    if (result.All(x => x))
+                    {
+                        // add log
+                    }
+                }
+                // close server connection
+
+            }
+
+            return _serviceEndpointManager.GetEndpoints(_serviceEndpointManager.GetHubs().FirstOrDefault());
+        }
+
+        private void OnChange(ServiceOptions options)
+        {
+            if (options.ConfigurationScale && _inited)
+            {
+                var endpoints = GetChangedEndpoints(_store, options.Endpoints);
+
+                // Do add then remove
+                OnAdd(endpoints.AddedEndpoints);
+
+                OnRemove(endpoints.RemovedEndpoints);
+
+                _store = options.Endpoints;
+            }
+        }
+
+        private void OnAdd(IReadOnlyList<ServiceEndpoint> endpoints)
+        {
+            endpoints.ToList().ForEach(e => AddServiceEndpoint(e));
+        }
+
+        private void OnRemove(IReadOnlyList<ServiceEndpoint> endpoints)
+        {
+            //endpoints.ToList().ForEach(e => RemoveServiceEndpoint(e));
+        }
+
+        private (IReadOnlyList<ServiceEndpoint> AddedEndpoints, IReadOnlyList<ServiceEndpoint> RemovedEndpoints) 
+            GetChangedEndpoints(IReadOnlyList<ServiceEndpoint> cachedEndpoints, IReadOnlyList<ServiceEndpoint> newEndpoints)
+        {
+            // Compare by ConnectionString, update endpoint is not supported
+            var cachedIds = cachedEndpoints.Select(e => e.ConnectionString).ToList();
+            var newIds = newEndpoints.Select(e => e.ConnectionString).ToList();
+
+            var addedIds = newIds.Except(cachedIds).ToList();
+            var removedIds = cachedIds.Except(newIds).ToList();
+
+            var addedEndpoints = newEndpoints.Where(e => addedIds.Contains(e.ConnectionString)).ToList();
+            var removedEndpoints = cachedEndpoints.Where(e => removedIds.Contains(e.ConnectionString)).ToList();
+
+            return (AddedEndpoints: addedEndpoints, RemovedEndpoints: removedEndpoints);
         }
 
         private bool[] AddServiceEndpointToContainer(ServiceEndpoint serviceEndpoint)
@@ -58,7 +126,6 @@ namespace Microsoft.Azure.SignalR
         private bool StartServiceConnectionAsync(string hub, ServiceEndpoint serviceEndpoint)
         {
             var container = _serviceEndpointManager.GetServiceConnectionContainer(hub);
-            var hubEndpoint = _serviceEndpointManager.GenerateHubServiceEndpoint(hub, serviceEndpoint);
             if (container == null)
             {
                 Log.MultiEndpointContainerNotFound(_logger, hub);
@@ -66,8 +133,33 @@ namespace Microsoft.Azure.SignalR
             }
             else
             {
+                var hubEndpoint = _serviceEndpointManager.GenerateHubServiceEndpoint(hub, serviceEndpoint);
                 return container.AddServiceEndpoint(hubEndpoint, _loggerFactory);
             }
+        }
+        
+        private bool IsEndpointStable()
+        {
+            var status = new List<bool>();
+            var hubs = _serviceEndpointManager.GetHubs();
+            foreach (var hub in hubs)
+            {
+                var container = _serviceEndpointManager.GetServiceConnectionContainer(hub);
+                status.Add(container.IsStable);
+            }
+            return status.All(x => x);
+        }
+
+        private bool[] ShutdownServiceEndpoint(ServiceEndpoint serviceEndpoint)
+        {
+            var result = new List<bool>();
+            var hubs = _serviceEndpointManager.GetHubs();
+            foreach (var hub in hubs)
+            {
+                var container = _serviceEndpointManager.GetServiceConnectionContainer(hub);
+                result.Add(container.WriteAckableMessageAsync(ShutdownEndpointPingMessage.GetPingMessage()).Result);
+            }
+            return result.ToArray();
         }
 
         private static class Log

@@ -44,5 +44,16 @@ namespace Microsoft.Azure.SignalR
             value = null;
             return false;
         }
+
+        public static bool TryGetServerStatusContext(this ServicePingMessage message, out string serverIdContext)
+        {
+            if (message.TryGetValue(ServiceStatusPingMessage.ContextKey, out serverIdContext))
+            {
+                return true;
+            }
+
+            serverIdContext = null;
+            return false;
+        }
     }
 }

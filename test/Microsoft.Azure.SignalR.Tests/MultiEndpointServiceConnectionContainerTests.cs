@@ -13,6 +13,7 @@ using Microsoft.Azure.SignalR.Protocol;
 using Microsoft.Azure.SignalR.Tests.Common;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -866,7 +867,7 @@ namespace Microsoft.Azure.SignalR.Tests
 
         private class TestServiceScaleManager : ServiceScaleManager
         {
-            public TestServiceScaleManager(IServiceEndpointManager endpointManager) : base(endpointManager, NullLoggerFactory.Instance)
+            public TestServiceScaleManager(IServiceEndpointManager endpointManager) : base(endpointManager, NullLoggerFactory.Instance, null)
             { }
         }
     }

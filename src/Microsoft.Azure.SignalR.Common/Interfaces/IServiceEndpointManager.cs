@@ -21,6 +21,7 @@ namespace Microsoft.Azure.SignalR
 
         IMultiEndpointServiceConnectionContainer GetServiceConnectionContainer(string hub);
 
+        // TODO: Move to ScaleService if we don't public the IScaleService
         void AddServiceConnectionContainer(string hub, IMultiEndpointServiceConnectionContainer container);
 
         IEnumerable<string> GetHubs();

@@ -17,6 +17,7 @@ namespace Microsoft.Azure.SignalR
         // endpoints ready for route
         private readonly ConcurrentDictionary<string, IMultiEndpointServiceConnectionContainer> _hubContainers = new ConcurrentDictionary<string, IMultiEndpointServiceConnectionContainer>();
 
+
         private readonly ILogger _logger;
 
         public ServiceEndpoint[] Endpoints { get; internal set; }
@@ -82,7 +83,7 @@ namespace Microsoft.Azure.SignalR
             foreach (var hubEndpoints in _endpointsPerHub)
             {
                 // Make ConnectionString the key to match existing endpoints
-                var updatedHubEndpoints = hubEndpoints.Value.Where(x => x.ConnectionString != endpoint.ConnectionString).ToArray();
+                var updatedHubEndpoints = hubEndpoints.Value.Where(e => e.ConnectionString != endpoint.ConnectionString).ToArray();
                 _endpointsPerHub.TryUpdate(hubEndpoints.Key, updatedHubEndpoints, hubEndpoints.Value);
             }
         }
@@ -91,6 +92,30 @@ namespace Microsoft.Azure.SignalR
         {
             var provider = GetEndpointProvider(endpoint);
             return new HubServiceEndpoint(hub, provider, endpoint);
+        }
+
+        public IMultiEndpointServiceConnectionContainer GetServiceConnectionContainer(string hub)
+        {
+            if (_hubContainers.TryGetValue(hub, out var container))
+            {
+                return container;
+            }
+
+            Log.MultiEndpointContainerNotFound(_logger, hub);
+            return null;
+        }
+
+        public void AddServiceConnectionContainer(string hub, IMultiEndpointServiceConnectionContainer container)
+        {
+            if (!_hubContainers.TryAdd(hub, container))
+            {
+                Log.MultiEndpointContainerAlreadyExists(_logger, hub);
+            }
+        }
+
+        public IEnumerable<string> GetHubs()
+        {
+            return _hubContainers.Select(h => h.Key).ToList();
         }
 
         private static IEnumerable<ServiceEndpoint> GetEndpoints(IServiceEndpointOptions options)
@@ -117,30 +142,6 @@ namespace Microsoft.Azure.SignalR
                     yield return endpoint;
                 }
             }
-        }
-
-        public IMultiEndpointServiceConnectionContainer GetServiceConnectionContainer(string hub)
-        {
-            if (_hubContainers.TryGetValue(hub, out var container))
-            {
-                return container;
-            }
-
-            Log.MultiEndpointContainerNotFound(_logger, hub);
-            return null;
-        }
-
-        public void AddServiceConnectionContainer(string hub, IMultiEndpointServiceConnectionContainer container)
-        {
-            if (!_hubContainers.TryAdd(hub, container))
-            {
-                Log.MultiEndpointContainerAlreadyExists(_logger, hub);
-            }
-        }
-
-        public IEnumerable<string> GetHubs()
-        {
-            return _hubContainers.Select(h => h.Key).ToList();
         }
 
         private static class Log

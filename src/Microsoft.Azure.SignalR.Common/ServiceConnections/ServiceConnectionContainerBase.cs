@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,6 +17,11 @@ namespace Microsoft.Azure.SignalR
     internal abstract class ServiceConnectionContainerBase : IServiceConnectionContainer, IServiceMessageHandler, IDisposable
     {
         private static readonly int MaxReconnectBackOffInternalInMilliseconds = 1000;
+        private static readonly TimeSpan DefaultGetServiceStatusInterval = TimeSpan.FromSeconds(10);
+        private static readonly long DefaultGetServiceStatusTicks = DefaultGetServiceStatusInterval.Seconds * Stopwatch.Frequency;
+
+        private long _lastSendTimestamp;
+
         private static TimeSpan ReconnectInterval =>
             TimeSpan.FromMilliseconds(StaticRandom.Next(MaxReconnectBackOffInternalInMilliseconds));
 
@@ -32,6 +38,8 @@ namespace Microsoft.Azure.SignalR
         private volatile ServiceConnectionStatus _status;
 
         private volatile bool _terminated = false;
+
+        private readonly TimerAwaitable _timer;
 
         protected ILogger Logger { get; }
 
@@ -72,6 +80,8 @@ namespace Microsoft.Azure.SignalR
             }
         }
 
+        public abstract string ServiceStatus { get; }
+
         protected ServiceConnectionContainerBase(IServiceConnectionFactory serviceConnectionFactory,
             int minConnectionCount, HubServiceEndpoint endpoint,
             IReadOnlyList<IServiceConnection> initialConnections = null, ILogger logger = null, AckHandler ackHandler = null)
@@ -108,6 +118,8 @@ namespace Microsoft.Azure.SignalR
             FixedServiceConnections = initial;
             FixedConnectionCount = initial.Count;
             ConnectionStatusChanged += OnStatusChanged;
+
+            _timer = StartServiceStatusPingTimer();
         }
 
         public Task StartAsync()
@@ -289,6 +301,7 @@ namespace Microsoft.Azure.SignalR
         {
             if (disposing)
             {
+                _timer.Stop();
                 _ackHandler.Dispose();
             }
         }
@@ -347,6 +360,43 @@ namespace Microsoft.Azure.SignalR
             }
         }
 
+        private TimerAwaitable StartServiceStatusPingTimer()
+        {
+            Log.StartingServiceStatusPingTimer(Logger, DefaultGetServiceStatusInterval);
+
+            _lastSendTimestamp = Stopwatch.GetTimestamp();
+            var timer = new TimerAwaitable(DefaultGetServiceStatusInterval, DefaultGetServiceStatusInterval);
+            _ = ServiceStatusPingAsync(timer);
+
+            return timer;
+        }
+
+        private async Task ServiceStatusPingAsync(TimerAwaitable timer)
+        {
+            using (timer)
+            {
+                timer.Start();
+
+                while (await timer)
+                {
+                    try
+                    {
+                        // Check if last send time is longer than default keep-alive ticks and then send ping
+                        if (Stopwatch.GetTimestamp() - Interlocked.Read(ref _lastSendTimestamp) > DefaultGetServiceStatusTicks)
+                        {
+                            await WriteAsync(ServiceStatusPingMessage.ActiveServicePingMessage);
+                            Interlocked.Exchange(ref _lastSendTimestamp, Stopwatch.GetTimestamp());
+                            Log.SentServiceStatusPing(Logger);
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        Log.FailedSendingServiceStatusPing(Logger, e);
+                    }
+                }
+            }
+        }
+
         private static class Log
         {
             private static readonly Action<ILogger, string, string, Exception> _endpointOnline =
@@ -354,6 +404,15 @@ namespace Microsoft.Azure.SignalR
 
             private static readonly Action<ILogger, string, string, Exception> _endpointOffline =
                 LoggerMessage.Define<string, string>(LogLevel.Error, new EventId(2, "EndpointOffline"), "Hub '{hub}' is now disconnected from '{endpoint}'. Please check log for detailed info.");
+
+            private static readonly Action<ILogger, double, Exception> _startingServiceStatusPingTimer =
+                LoggerMessage.Define<double>(LogLevel.Debug, new EventId(3, "StartingServiceStatusPingTimer"), "Starting service status ping timer. Duration: {KeepAliveInterval:0.00}ms");
+
+            private static readonly Action<ILogger, Exception> _sentServiceStatusPing =
+                LoggerMessage.Define(LogLevel.Debug, new EventId(4, "SentServiceStatusPing"), "Sent a service status ping message to service.");
+
+            private static readonly Action<ILogger, Exception> _failedSendingServiceStatusPing =
+                LoggerMessage.Define(LogLevel.Warning, new EventId(5, "FailedSendingServiceStatusPing"), "Failed sending a service status ping message to service.");
 
             public static void EndpointOnline(ILogger logger, HubServiceEndpoint endpoint)
             {
@@ -363,6 +422,21 @@ namespace Microsoft.Azure.SignalR
             public static void EndpointOffline(ILogger logger, HubServiceEndpoint endpoint)
             {
                 _endpointOffline(logger, endpoint.Hub, endpoint.ToString(), null);
+            }
+
+            public static void StartingServiceStatusPingTimer(ILogger logger, TimeSpan keepAliveInterval)
+            {
+                _startingServiceStatusPingTimer(logger, keepAliveInterval.TotalMilliseconds, null);
+            }
+
+            public static void SentServiceStatusPing(ILogger logger)
+            {
+                _sentServiceStatusPing(logger, null);
+            }
+
+            public static void FailedSendingServiceStatusPing(ILogger logger, Exception exception)
+            {
+                _failedSendingServiceStatusPing(logger, exception);
             }
         }
     }

@@ -12,6 +12,7 @@ namespace Microsoft.Azure.SignalR
         private readonly string _status;
 
         public const string Key = "status";
+        public const string ContextKey = "context";
 
         public bool IsActive { get; }
 

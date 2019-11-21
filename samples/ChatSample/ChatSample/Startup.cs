@@ -20,18 +20,9 @@ namespace ChatSample
 
         public void ConfigureServices(IServiceCollection services)
         {
-            services.Configure<ScaleOptions>(Configuration.GetSection("AdditionalEndpoints"));
-            services.AddSingleton<IOptionsChangeTokenSource<ScaleOptions>>(new ConfigurationChangeTokenSource<ScaleOptions>(Options.DefaultName, Configuration));
-
             services.AddSignalR()
-                    .AddAzureSignalR(options =>
-                    {
-                        options.ConnectionString = "Endpoint=https://jixinaue.service.signalr.net;AccessKey=cOKNRVvika0bEO93RytJUUyPPZu9dUl+M8mD2LK461U=;Version=1.0;";//"Endpoint=https://jixineastus2.service.signalr.net;AccessKey=EjRcwG0sQq3UNyfykUrN+assmIjSTsnfmCLE5f2U94s=;Version=1.0;";
-                        options.ConnectionCount = 1;
-                    });
+                    .AddAzureSignalR(Configuration);
             services.AddMvc();
-            services.AddSingleton<ScaleService>();
-            //services.AddSingleton(typeof(IOptionsMonitor<>), typeof(IOptionsMonitor<>));
         }
 
         public void Configure(IApplicationBuilder app)

@@ -114,6 +114,8 @@ namespace Microsoft.Azure.SignalR
 
         public ServiceConnectionStatus Status => throw new NotSupportedException();
 
+        public HubServiceEndpointStatus ServiceStatus => throw new NotSupportedException();
+
         public Task ConnectionInitializedTask
         {
             get
@@ -126,6 +128,18 @@ namespace Microsoft.Azure.SignalR
                 return Task.WhenAll(from connection in Connections
                                     select connection.Value.ConnectionInitializedTask);
             }
+        }
+
+        public bool IsStable => CheckHubServiceEndpoints();
+
+        private bool CheckHubServiceEndpoints()
+        {
+            var endpointsStatus = new List<string>();
+            foreach (var item in Connections)
+            {
+                endpointsStatus.Add(item.Value.ServiceStatus);
+            }
+            return endpointsStatus.Distinct().Count() == 1;
         }
 
         public Task StartAsync()

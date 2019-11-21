@@ -26,6 +26,7 @@ namespace Microsoft.Azure.SignalR
         private readonly IEndpointRouter _router;
         private readonly string _hubName;
         private readonly IServerNameProvider _nameProvider;
+        private readonly IServiceScaleManager _serviceScaleManager;
 
         public ServiceHubDispatcher(IServiceProtocol serviceProtocol,
             IServiceConnectionManager<THub> serviceConnectionManager,
@@ -35,12 +36,14 @@ namespace Microsoft.Azure.SignalR
             ILoggerFactory loggerFactory,
             IEndpointRouter router,
             IServerNameProvider nameProvider,
-            IClientConnectionFactory clientConnectionFactory)
+            IClientConnectionFactory clientConnectionFactory,
+            IServiceScaleManager serviceScaleManager)
         {
             _serviceProtocol = serviceProtocol;
             _serviceConnectionManager = serviceConnectionManager;
             _clientConnectionManager = clientConnectionManager;
             _serviceEndpointManager = serviceEndpointManager;
+            _serviceScaleManager = serviceScaleManager;
             _options = options != null ? options.Value : throw new ArgumentNullException(nameof(options));
 
             _router = router ?? throw new ArgumentNullException(nameof(router));

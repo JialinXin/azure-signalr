@@ -10,5 +10,7 @@ namespace Microsoft.Azure.SignalR
         bool AddServiceEndpoint(HubServiceEndpoint endpoint, ILoggerFactory loggerFactory);
 
         IReadOnlyList<HubServiceEndpoint> HubEndpoints { get; }
+
+        bool IsStable { get; }
     }
 }
