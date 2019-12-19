@@ -41,6 +41,8 @@ namespace ChatSample.CoreApp3
                 routes.MapHub<Chat>("/chat");
                 routes.MapHub<NotificationHub>("/notificatons");
             });
+
+
         }
     }
 }

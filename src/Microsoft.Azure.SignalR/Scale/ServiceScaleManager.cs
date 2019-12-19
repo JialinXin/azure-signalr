@@ -35,7 +35,7 @@ namespace Microsoft.Azure.SignalR
             _inited = true;
         }
 
-        public async Task<IReadOnlyList<ServiceEndpoint>> AddServiceEndpoint(ServiceEndpoint serviceEndpoint)
+        public async Task AddServiceEndpoint(ServiceEndpoint serviceEndpoint)
         {
             if (!_serviceEndpointManager.Endpoints.Contains(serviceEndpoint))
             {
@@ -51,7 +51,7 @@ namespace Microsoft.Azure.SignalR
                 _serviceEndpointManager.AddServiceEndpoint(serviceEndpoint);
             }
 
-            return _serviceEndpointManager.GetEndpoints(_serviceEndpointManager.GetHubs().FirstOrDefault());
+            //return _serviceEndpointManager.GetEndpoints(_serviceEndpointManager.GetHubs().FirstOrDefault());
         }
 
         public IReadOnlyList<ServiceEndpoint> RemoveServiceEndpoint(ServiceEndpoint serviceEndpoint)
@@ -92,9 +92,9 @@ namespace Microsoft.Azure.SignalR
             }
         }
 
-        private void OnAdd(IReadOnlyList<ServiceEndpoint> endpoints)
+        private Task OnAdd(IReadOnlyList<ServiceEndpoint> endpoints)
         {
-            endpoints.ToList().ForEach(e => AddServiceEndpoint(e));
+            return Task.WhenAll(endpoints.ToList().Select(e => AddServiceEndpoint(e)));
         }
 
         private void OnRemove(IReadOnlyList<ServiceEndpoint> endpoints)
@@ -160,6 +160,11 @@ namespace Microsoft.Azure.SignalR
                 result.Add(container.WriteAckableMessageAsync(ShutdownEndpointPingMessage.GetPingMessage()).Result);
             }
             return result.ToArray();
+        }
+
+        Task<IReadOnlyList<ServiceEndpoint>> IServiceScaleManager.AddServiceEndpoint(ServiceEndpoint endpoint)
+        {
+            throw new NotImplementedException();
         }
 
         private static class Log

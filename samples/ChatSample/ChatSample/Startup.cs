@@ -34,6 +34,7 @@ namespace ChatSample
                 routes.MapHub<Chat>("/chat");
                 routes.MapHub<BenchHub>("/bench");
             });
+
         }
 
     }

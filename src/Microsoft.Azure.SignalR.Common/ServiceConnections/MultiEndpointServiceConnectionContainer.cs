@@ -132,6 +132,8 @@ namespace Microsoft.Azure.SignalR
 
         public bool IsStable => CheckHubServiceEndpoints();
 
+        string IServiceConnectionContainer.ServiceStatus => throw new NotImplementedException();
+
         private bool CheckHubServiceEndpoints()
         {
             var endpointsStatus = new List<string>();

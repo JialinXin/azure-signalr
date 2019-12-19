@@ -61,83 +61,83 @@ namespace Microsoft.Azure.SignalR.Tests
             Assert.Equal(2, result.Count);
         }
 
-        [Fact]
-        public void TestAddNewServiceEndpointUpdateRoute()
-        {
-            var endpoints = new[]
-            {
-                new ServiceEndpoint(ConnectionString1, EndpointType.Primary, "1"),
-                new ServiceEndpoint(ConnectionString2, EndpointType.Secondary, "11"),
-            };
+        //[Fact]
+        //public void TestAddNewServiceEndpointUpdateRoute()
+        //{
+        //    var endpoints = new[]
+        //    {
+        //        new ServiceEndpoint(ConnectionString1, EndpointType.Primary, "1"),
+        //        new ServiceEndpoint(ConnectionString2, EndpointType.Secondary, "11"),
+        //    };
+        //
+        //    var sem = new TestServiceEndpointManager(endpoints);
+        //
+        //    var router = new TestEndpointRouter();
+        //    var container = new MultiEndpointServiceConnectionContainer("hub",
+        //        e => new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+        //        new TestSimpleServiceConnection(),
+        //        new TestSimpleServiceConnection(),
+        //    }, e), sem, router, NullLoggerFactory.Instance);
+        //
+        //    var result = container.GetRoutedEndpoints(new MultiGroupBroadcastDataMessage(new[] { "group1", "group2" }, null)).ToList();
+        //
+        //    Assert.Equal(2, result.Count);
+        //
+        //    result = container.GetRoutedEndpoints(new MultiUserDataMessage(new[] { "user1", "user2" }, null)).ToList();
+        //
+        //    Assert.Equal(2, result.Count);
+        //
+        //    var newEndpoint = new ServiceEndpoint(string.Format(ConnectionStringFormatter, "http://url3"), EndpointType.Primary, "22");
+        //    var scaleManager = new TestServiceScaleManager(sem);
+        //    scaleManager.AddServiceEndpoint(newEndpoint);
+        //
+        //    result = container.GetRoutedEndpoints(new MultiGroupBroadcastDataMessage(new[] { "group1", "group2" }, null)).ToList();
+        //
+        //    Assert.Equal(3, result.Count); 
+        //    
+        //    result = container.GetRoutedEndpoints(new MultiUserDataMessage(new[] { "user1", "user2" }, null)).ToList();
+        //
+        //    Assert.Equal(3, result.Count);
+        //}
 
-            var sem = new TestServiceEndpointManager(endpoints);
-
-            var router = new TestEndpointRouter();
-            var container = new MultiEndpointServiceConnectionContainer("hub",
-                e => new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
-                new TestSimpleServiceConnection(),
-                new TestSimpleServiceConnection(),
-            }, e), sem, router, NullLoggerFactory.Instance);
-
-            var result = container.GetRoutedEndpoints(new MultiGroupBroadcastDataMessage(new[] { "group1", "group2" }, null)).ToList();
-
-            Assert.Equal(2, result.Count);
-
-            result = container.GetRoutedEndpoints(new MultiUserDataMessage(new[] { "user1", "user2" }, null)).ToList();
-
-            Assert.Equal(2, result.Count);
-
-            var newEndpoint = new ServiceEndpoint(string.Format(ConnectionStringFormatter, "http://url3"), EndpointType.Primary, "22");
-            var scaleManager = new TestServiceScaleManager(sem);
-            scaleManager.AddServiceEndpoint(newEndpoint);
-
-            result = container.GetRoutedEndpoints(new MultiGroupBroadcastDataMessage(new[] { "group1", "group2" }, null)).ToList();
-
-            Assert.Equal(3, result.Count); 
-            
-            result = container.GetRoutedEndpoints(new MultiUserDataMessage(new[] { "user1", "user2" }, null)).ToList();
-
-            Assert.Equal(3, result.Count);
-        }
-
-        [Fact]
-        public void TestAddDuplicatedServiceEndpointWontUpdateRoute()
-        {
-            var endpoints = new[]
-            {
-                new ServiceEndpoint(ConnectionString1, EndpointType.Primary, "1"),
-                new ServiceEndpoint(ConnectionString2, EndpointType.Secondary, "11"),
-            };
-
-            var sem = new TestServiceEndpointManager(endpoints);
-
-            var router = new TestEndpointRouter();
-            var container = new MultiEndpointServiceConnectionContainer("hub",
-                e => new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
-                new TestSimpleServiceConnection(),
-                new TestSimpleServiceConnection(),
-            }, e), sem, router, NullLoggerFactory.Instance);
-
-            var result = container.GetRoutedEndpoints(new MultiGroupBroadcastDataMessage(new[] { "group1", "group2" }, null)).ToList();
-
-            Assert.Equal(2, result.Count);
-
-            result = container.GetRoutedEndpoints(new MultiUserDataMessage(new[] { "user1", "user2" }, null)).ToList();
-
-            Assert.Equal(2, result.Count);
-
-            var newEndpoint = new ServiceEndpoint(ConnectionString1, EndpointType.Primary, "1");
-            var scaleManager = new TestServiceScaleManager(sem);
-            scaleManager.AddServiceEndpoint(newEndpoint);
-
-            result = container.GetRoutedEndpoints(new MultiGroupBroadcastDataMessage(new[] { "group1", "group2" }, null)).ToList();
-
-            Assert.Equal(2, result.Count);
-
-            result = container.GetRoutedEndpoints(new MultiUserDataMessage(new[] { "user1", "user2" }, null)).ToList();
-
-            Assert.Equal(2, result.Count);
-        }
+        //[Fact]
+        //public void TestAddDuplicatedServiceEndpointWontUpdateRoute()
+        //{
+        //    var endpoints = new[]
+        //    {
+        //        new ServiceEndpoint(ConnectionString1, EndpointType.Primary, "1"),
+        //        new ServiceEndpoint(ConnectionString2, EndpointType.Secondary, "11"),
+        //    };
+        //
+        //    var sem = new TestServiceEndpointManager(endpoints);
+        //
+        //    var router = new TestEndpointRouter();
+        //    var container = new MultiEndpointServiceConnectionContainer("hub",
+        //        e => new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+        //        new TestSimpleServiceConnection(),
+        //        new TestSimpleServiceConnection(),
+        //    }, e), sem, router, NullLoggerFactory.Instance);
+        //
+        //    var result = container.GetRoutedEndpoints(new MultiGroupBroadcastDataMessage(new[] { "group1", "group2" }, null)).ToList();
+        //
+        //    Assert.Equal(2, result.Count);
+        //
+        //    result = container.GetRoutedEndpoints(new MultiUserDataMessage(new[] { "user1", "user2" }, null)).ToList();
+        //
+        //    Assert.Equal(2, result.Count);
+        //
+        //    var newEndpoint = new ServiceEndpoint(ConnectionString1, EndpointType.Primary, "1");
+        //    var scaleManager = new TestServiceScaleManager(sem);
+        //    scaleManager.AddServiceEndpoint(newEndpoint);
+        //
+        //    result = container.GetRoutedEndpoints(new MultiGroupBroadcastDataMessage(new[] { "group1", "group2" }, null)).ToList();
+        //
+        //    Assert.Equal(2, result.Count);
+        //
+        //    result = container.GetRoutedEndpoints(new MultiUserDataMessage(new[] { "user1", "user2" }, null)).ToList();
+        //
+        //    Assert.Equal(2, result.Count);
+        //}
 
         [Fact]
         public void TestEndpointManagerWithDuplicateEndpoints()
@@ -863,12 +863,6 @@ namespace Microsoft.Azure.SignalR.Tests
 
                 return base.GetNegotiateEndpoint(context, endpoints);
             }
-        }
-
-        private class TestServiceScaleManager : ServiceScaleManager
-        {
-            public TestServiceScaleManager(IServiceEndpointManager endpointManager) : base(endpointManager, NullLoggerFactory.Instance, null)
-            { }
         }
     }
 }
