@@ -27,7 +27,11 @@ namespace Microsoft.Azure.SignalR
 
         private bool _needRouter => HubEndpoints.Count > 1;
 
-        public MultiEndpointServiceConnectionContainer(string hub, Func<HubServiceEndpoint, IServiceConnectionContainer> generator, IServiceEndpointManager endpointManager, IMessageRouter router, ILoggerFactory loggerFactory)
+        public MultiEndpointServiceConnectionContainer(string hub,
+                                                       Func<HubServiceEndpoint, IServiceConnectionContainer> generator,
+                                                       IServiceEndpointManager endpointManager,
+                                                       IMessageRouter router,
+                                                       ILoggerFactory loggerFactory)
         {
             if (generator == null)
             {
@@ -55,10 +59,21 @@ namespace Microsoft.Azure.SignalR
             endpointManager.AddServiceConnectionContainer(hub, this);
         }
 
-        public MultiEndpointServiceConnectionContainer(IServiceConnectionFactory serviceConnectionFactory, string hub,
-            int count, IServiceEndpointManager endpointManager, IMessageRouter router, IServerNameProvider nameProvider, ILoggerFactory loggerFactory)
-        :this(hub, endpoint => CreateContainer(serviceConnectionFactory, endpoint, count, loggerFactory),
-            endpointManager, router, loggerFactory)
+        public MultiEndpointServiceConnectionContainer(
+            IServiceConnectionFactory serviceConnectionFactory,
+            string hub,
+            int count,
+            IServiceEndpointManager endpointManager,
+            IMessageRouter router,
+            IServerNameProvider nameProvider,
+            ILoggerFactory loggerFactory
+            ) : this(
+                hub,
+                endpoint => CreateContainer(serviceConnectionFactory, endpoint, count, loggerFactory),
+                endpointManager,
+                router,
+                loggerFactory
+                )
         {
             _serviceConnectionFactory = serviceConnectionFactory;
             _connectionCount = count;
@@ -172,13 +187,24 @@ namespace Microsoft.Azure.SignalR
             }));
         }
 
+        public Task OfflineAsync()
+        {
+            if (_inner != null)
+            {
+                return _inner.OfflineAsync();
+            }
+            else
+            {
+                return Task.WhenAll(Connections.Select(c => c.Value.OfflineAsync()));
+            }
+        }
+
         public Task WriteAsync(ServiceMessage serviceMessage)
         {
             if (!_needRouter)
             {
                 return _inner.WriteAsync(serviceMessage);
             }
-
             return WriteMultiEndpointMessageAsync(serviceMessage, connection => connection.WriteAsync(serviceMessage));
         }
 
@@ -194,7 +220,8 @@ namespace Microsoft.Azure.SignalR
             // 2. All the endpoints response failed state including "NotFound", "Timeout" and waiting response to timeout
             var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-            var writeMessageTask = WriteMultiEndpointMessageAsync(serviceMessage, async connection => {
+            var writeMessageTask = WriteMultiEndpointMessageAsync(serviceMessage, async connection =>
+            {
                 var succeeded = await connection.WriteAckableMessageAsync(serviceMessage, cancellationToken);
                 if (succeeded)
                 {
@@ -298,6 +325,9 @@ namespace Microsoft.Azure.SignalR
             private static readonly Action<ILogger, string, string, Exception> _failedWritingMessageToEndpoint =
                 LoggerMessage.Define<string, string>(LogLevel.Warning, new EventId(5, "FailedWritingMessageToEndpoint"), "Message {messageType} is not sent to endpoint {endpoint} because all connections to this endpoint are offline.");
 
+            private static readonly Action<ILogger, string, Exception> _closingConnection =
+                LoggerMessage.Define<string>(LogLevel.Debug, new EventId(6, "ClosingConnection"), "Closing connections for endpoint {endpoint}.");
+
             public static void StartingConnection(ILogger logger, string endpoint)
             {
                 _startingConnection(logger, endpoint, null);
@@ -306,6 +336,11 @@ namespace Microsoft.Azure.SignalR
             public static void StoppingConnection(ILogger logger, string endpoint)
             {
                 _stoppingConnection(logger, endpoint, null);
+            }
+
+            public static void ClosingConnection(ILogger logger, string endpoint)
+            {
+                _closingConnection(logger, endpoint, null);
             }
 
             public static void EndpointNotExists(ILogger logger, string endpoint)

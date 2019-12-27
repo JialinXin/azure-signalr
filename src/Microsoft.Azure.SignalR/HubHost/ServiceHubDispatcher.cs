@@ -2,6 +2,8 @@
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.SignalR;
@@ -28,7 +30,8 @@ namespace Microsoft.Azure.SignalR
         private readonly IServerNameProvider _nameProvider;
         private readonly IServiceScaleManager _serviceScaleManager;
 
-        public ServiceHubDispatcher(IServiceProtocol serviceProtocol,
+        public ServiceHubDispatcher(
+            IServiceProtocol serviceProtocol,
             IServiceConnectionManager<THub> serviceConnectionManager,
             IClientConnectionManager clientConnectionManager,
             IServiceEndpointManager serviceEndpointManager,
@@ -62,15 +65,49 @@ namespace Microsoft.Azure.SignalR
             _serviceConnectionManager.SetServiceConnection(serviceConnection);
 
             Log.StartingConnection(_logger, Name, _options.ConnectionCount);
+
             _ = _serviceConnectionManager.StartAsync();
         }
 
-        private MultiEndpointServiceConnectionContainer GetMultiEndpointServiceConnectionContainer(string hub, ConnectionDelegate connectionDelegate, Action<HttpContext> contextConfig = null)
+        public async Task ShutdownAsync(TimeSpan timeout)
+        {
+            using CancellationTokenSource source = new CancellationTokenSource();
+
+            var expected = OfflineAndWaitForCompletedAsync();
+            var actual = await Task.WhenAny(
+                Task.Delay(timeout, source.Token), expected
+            );
+
+            if (actual != expected)
+            {
+                // TODO log timeout.
+            }
+
+            source.Cancel();
+            await _serviceConnectionManager.StopAsync();
+        }
+
+        private async Task OfflineAndWaitForCompletedAsync()
+        {
+            await _serviceConnectionManager.OfflineAsync();
+            await _clientConnectionManager.WhenAllCompleted();
+        }
+
+        private IServiceConnectionContainer GetMultiEndpointServiceConnectionContainer(string hub, ConnectionDelegate connectionDelegate, Action<HttpContext> contextConfig = null)
         {
             var connectionFactory = new ConnectionFactory(_nameProvider, _loggerFactory);
             var serviceConnectionFactory = new ServiceConnectionFactory(_serviceProtocol, _clientConnectionManager, connectionFactory, _loggerFactory, connectionDelegate, _clientConnectionFactory);
             serviceConnectionFactory.ConfigureContext = contextConfig;
-            return new MultiEndpointServiceConnectionContainer(serviceConnectionFactory, hub, _options.ConnectionCount, _serviceEndpointManager, _router, _nameProvider, _loggerFactory);
+
+            var factory = new ServiceConnectionContainerFactory(
+                serviceConnectionFactory,
+                _serviceEndpointManager,
+                _router,
+                _options,
+                _nameProvider,
+                _loggerFactory
+            );
+            return factory.Create(hub);
         }
 
         private static class Log

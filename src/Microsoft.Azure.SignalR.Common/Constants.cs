@@ -12,6 +12,10 @@ namespace Microsoft.Azure.SignalR
         public const string ApplicationNameDefaultKey = "Azure:SignalR:ApplicationName";
         public const string EndpointConfigurationKey = "Azure:SignalR:Endpoints";
 
+        public const int DefaultShutdownTimeoutInSeconds = 30;
+
+        public const string AsrsMigrateIn = "Asrs-Migrate-In";
+        public const string AsrsMigrateOut = "Asrs-Migrate-Out";
         public const string AsrsUserAgent = "Asrs-User-Agent";
         public const string AsrsInstanceId = "Asrs-Instance-Id";
 
@@ -67,6 +71,13 @@ namespace Microsoft.Azure.SignalR
         {
             public const string RebalanceKey = "target";
             public const string OfflineKey = "offline";
+            public const string ShutdownKey = "shutdown";
+        }
+
+        public static class ServicePingMessageValue
+        {
+            public const string ShutdownFin = "fin";
+            public const string ShutdownFinAck = "finack";
         }
     }
 }

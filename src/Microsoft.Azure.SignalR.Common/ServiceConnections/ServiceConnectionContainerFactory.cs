@@ -3,33 +3,32 @@
 
 using System;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
-namespace Microsoft.Azure.SignalR.AspNet
+namespace Microsoft.Azure.SignalR
 {
-    internal class MultiEndpointServiceConnectionContainerFactory : IServiceConnectionContainerFactory
+    internal class ServiceConnectionContainerFactory : IServiceConnectionContainerFactory
     {
-        private readonly ServiceOptions _options;
+        private readonly IServiceEndpointOptions _options;
         private readonly ILoggerFactory _loggerFactory;
-        private readonly IServiceConnectionFactory _serviceConnectionFactory;
         private readonly IServiceEndpointManager _serviceEndpointManager;
-        private readonly IEndpointRouter _router;
+        private readonly IMessageRouter _router;
         private readonly IServerNameProvider _nameProvider;
+        private readonly IServiceConnectionFactory _serviceConnectionFactory;
 
-        public MultiEndpointServiceConnectionContainerFactory(
+        public ServiceConnectionContainerFactory(
         IServiceConnectionFactory serviceConnectionFactory,
         IServiceEndpointManager serviceEndpointManager,
-        IEndpointRouter router,
-        IOptions<ServiceOptions> options,
+        IMessageRouter router,
+        IServiceEndpointOptions options,
         IServerNameProvider nameProvider,
         ILoggerFactory loggerFactory)
         {
-            _loggerFactory = loggerFactory;
-            _router = router ?? throw new ArgumentNullException(nameof(router));
             _serviceConnectionFactory = serviceConnectionFactory;
-            _nameProvider = nameProvider;
-            _options = options?.Value;
             _serviceEndpointManager = serviceEndpointManager ?? throw new ArgumentNullException(nameof(serviceEndpointManager));
+            _router = router ?? throw new ArgumentNullException(nameof(router));
+            _options = options;
+            _nameProvider = nameProvider;
+            _loggerFactory = loggerFactory;
         }
 
         public IServiceConnectionContainer Create(string hub)

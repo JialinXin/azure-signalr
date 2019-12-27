@@ -25,6 +25,8 @@ namespace Microsoft.Azure.SignalR
         private static TimeSpan ReconnectInterval =>
             TimeSpan.FromMilliseconds(StaticRandom.Next(MaxReconnectBackOffInternalInMilliseconds));
 
+        private static TimeSpan RemoveFromServiceTimeout = TimeSpan.FromSeconds(3);
+
         private readonly BackOffPolicy _backOffPolicy = new BackOffPolicy();
 
         private readonly object _lock = new object();
@@ -41,6 +43,11 @@ namespace Microsoft.Azure.SignalR
 
         private readonly TimerAwaitable _timer;
 
+        private static readonly PingMessage _shutdownFinMessage = new PingMessage()
+        {
+            Messages = new string[2] { Constants.ServicePingMessageKey.ShutdownKey, Constants.ServicePingMessageValue.ShutdownFin }
+        };
+
         protected ILogger Logger { get; }
 
         protected List<IServiceConnection> FixedServiceConnections
@@ -53,7 +60,7 @@ namespace Microsoft.Azure.SignalR
 
         protected int FixedConnectionCount { get; }
 
-        protected virtual ServerConnectionType InitialConnectionType { get; } = ServerConnectionType.Default;
+        protected virtual ServiceConnectionType InitialConnectionType { get; } = ServiceConnectionType.Default;
 
         public HubServiceEndpoint Endpoint { get; }
 
@@ -122,10 +129,7 @@ namespace Microsoft.Azure.SignalR
             _timer = StartServiceStatusPingTimer();
         }
 
-        public Task StartAsync()
-        {
-            return Task.WhenAll(FixedServiceConnections.Select(c => StartCoreAsync(c)));
-        }
+        public Task StartAsync() => Task.WhenAll(FixedServiceConnections.Select(c => StartCoreAsync(c)));
 
         public virtual Task StopAsync()
         {
@@ -139,6 +143,11 @@ namespace Microsoft.Azure.SignalR
         /// <returns></returns>
         protected async Task StartCoreAsync(IServiceConnection connection, string target = null)
         {
+            if (_terminated)
+            {
+                return;
+            }
+
             try
             {
                 await connection.StartAsync(target);
@@ -159,7 +168,7 @@ namespace Microsoft.Azure.SignalR
         /// <summary>
         /// Create a connection for a specific service connection type
         /// </summary>
-        protected IServiceConnection CreateServiceConnectionCore(ServerConnectionType type)
+        protected IServiceConnection CreateServiceConnectionCore(ServiceConnectionType type)
         {
             var connection = ServiceConnectionFactory.Create(Endpoint, this, type);
 
@@ -225,12 +234,12 @@ namespace Microsoft.Azure.SignalR
             {
                 var connection = CreateServiceConnectionCore(InitialConnectionType);
                 ReplaceFixedConnections(index, connection);
+
                 _ = StartCoreAsync(connection);
                 await connection.ConnectionInitializedTask;
 
                 return connection.Status == ServiceConnectionStatus.Connected;
             };
-
             await _backOffPolicy.CallProbeWithBackOffAsync(tryNewConnection, GetRetryDelay);
         }
 
@@ -358,6 +367,30 @@ namespace Microsoft.Azure.SignalR
             {
                 yield return CreateServiceConnectionCore(InitialConnectionType);
             }
+        }
+
+        protected async Task WriteFinAsync(IServiceConnection c)
+        {
+            await c.WriteAsync(_shutdownFinMessage);
+        }
+
+        protected async Task RemoveConnectionAsync(IServiceConnection c)
+        {
+            _ = WriteFinAsync(c);
+
+            using var source = new CancellationTokenSource();
+            var task = await Task.WhenAny(c.ConnectionOfflineTask, Task.Delay(RemoveFromServiceTimeout, source.Token));
+            source.Cancel();
+
+            if (task != c.ConnectionOfflineTask)
+            {
+                // log
+            }
+        }
+
+        public virtual Task OfflineAsync()
+        {
+            return Task.WhenAll(FixedServiceConnections.Select(c => RemoveConnectionAsync(c)));
         }
 
         private TimerAwaitable StartServiceStatusPingTimer()

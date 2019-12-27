@@ -26,7 +26,7 @@ namespace Microsoft.Azure.SignalR.Common.ServiceConnections
 
         public override string ServiceStatus => _serviceStatus;
 
-        protected override ServerConnectionType InitialConnectionType => ServerConnectionType.Weak;
+        protected override ServiceConnectionType InitialConnectionType => ServiceConnectionType.Weak;
 
         public WeakServiceConnectionContainer(IServiceConnectionFactory serviceConnectionFactory,
             int fixedConnectionCount, HubServiceEndpoint endpoint, ILogger logger)
@@ -59,6 +59,11 @@ namespace Microsoft.Azure.SignalR.Common.ServiceConnections
             }
 
             return base.WriteAsync(serviceMessage);
+        }
+
+        public override Task OfflineAsync()
+        {
+            return Task.CompletedTask;
         }
 
         internal bool GetServiceStatus(bool active, int checkWindow, TimeSpan checkTimeSpan)

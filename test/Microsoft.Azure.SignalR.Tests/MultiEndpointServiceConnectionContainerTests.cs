@@ -19,8 +19,21 @@ using Xunit.Abstractions;
 
 namespace Microsoft.Azure.SignalR.Tests
 {
-    public class MultiEndpointServiceConnectionContainerTests : VerifiableLoggedTest
+    public class TestEndpointServiceConnectionContainerTests : VerifiableLoggedTest
     {
+        private sealed class TestMultiEndpointServiceConnectionContainer : MultiEndpointServiceConnectionContainer
+        {
+            public TestMultiEndpointServiceConnectionContainer(string hub,
+                                                          Func<HubServiceEndpoint, IServiceConnectionContainer> generator,
+                                                          IServiceEndpointManager endpoint,
+                                                          IEndpointRouter router,
+                                                          ILoggerFactory loggerFactory
+
+                ) : base(hub, generator, endpoint, router, loggerFactory)
+            {
+            }
+        }
+
         private const string ConnectionStringFormatter = "Endpoint={0};AccessKey=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789;";
         private const string Url1 = "http://url1";
         private const string Url2 = "https://url2";
@@ -28,7 +41,7 @@ namespace Microsoft.Azure.SignalR.Tests
         private readonly string ConnectionString2 = string.Format(ConnectionStringFormatter, Url2);
         private static readonly JoinGroupWithAckMessage DefaultGroupMessage = new JoinGroupWithAckMessage("a", "a", -1);
 
-        public MultiEndpointServiceConnectionContainerTests(ITestOutputHelper output) : base(output)
+        public TestEndpointServiceConnectionContainerTests(ITestOutputHelper output) : base(output)
         {
         }
 
@@ -46,8 +59,8 @@ namespace Microsoft.Azure.SignalR.Tests
             var sem = new TestServiceEndpointManager(endpoints);
 
             var router = new TestEndpointRouter();
-            var container = new MultiEndpointServiceConnectionContainer("hub",
-                e => new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+            var container = new TestMultiEndpointServiceConnectionContainer("hub",
+                e => new TestServiceConnectionContainer(new List<IServiceConnection> {
                 new TestSimpleServiceConnection(),
                 new TestSimpleServiceConnection(),
             }, e), sem, router, NullLoggerFactory.Instance);
@@ -154,8 +167,8 @@ namespace Microsoft.Azure.SignalR.Tests
             Assert.Equal("11", endpoints[1].Name);
 
             var router = new TestEndpointRouter();
-            var container = new MultiEndpointServiceConnectionContainer("hub",
-                e => new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+            var container = new TestMultiEndpointServiceConnectionContainer("hub",
+                e => new TestServiceConnectionContainer(new List<IServiceConnection> {
                 new TestSimpleServiceConnection(),
                 new TestSimpleServiceConnection(),
             }, e), sem, router, NullLoggerFactory.Instance);
@@ -178,8 +191,8 @@ namespace Microsoft.Azure.SignalR.Tests
             Assert.Equal("11", endpoints[1].Name);
 
             var router = new TestEndpointRouter();
-            var container = new MultiEndpointServiceConnectionContainer("hub",
-                e => new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+            var container = new TestMultiEndpointServiceConnectionContainer("hub",
+                e => new TestServiceConnectionContainer(new List<IServiceConnection> {
                 new TestSimpleServiceConnection(),
                 new TestSimpleServiceConnection(),
             }, e), sem, router, NullLoggerFactory.Instance);
@@ -220,9 +233,9 @@ namespace Microsoft.Azure.SignalR.Tests
             var router = new TestEndpointRouter(throws);
 
             var writeTcs = new TaskCompletionSource<object>();
-            TestBaseServiceConnectionContainer innerContainer = null;
-            var container = new MultiEndpointServiceConnectionContainer("hub",
-                e => innerContainer = new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+            TestServiceConnectionContainer innerContainer = null;
+            var container = new TestMultiEndpointServiceConnectionContainer("hub",
+                e => innerContainer = new TestServiceConnectionContainer(new List<IServiceConnection> {
                 new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                 new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                 new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
@@ -249,8 +262,8 @@ namespace Microsoft.Azure.SignalR.Tests
             var sem = new TestServiceEndpointManager(new ServiceEndpoint(ConnectionString1));
             var throws = new ServiceConnectionNotActiveException();
             var router = new TestEndpointRouter(throws);
-            var container = new MultiEndpointServiceConnectionContainer("hub",
-                e => new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+            var container = new TestMultiEndpointServiceConnectionContainer("hub",
+                e => new TestServiceConnectionContainer(new List<IServiceConnection> {
                 new TestSimpleServiceConnection(ServiceConnectionStatus.Disconnected),
                 new TestSimpleServiceConnection(ServiceConnectionStatus.Disconnected),
                 new TestSimpleServiceConnection(ServiceConnectionStatus.Disconnected),
@@ -273,12 +286,12 @@ namespace Microsoft.Azure.SignalR.Tests
         public async Task TestContainerWithTwoConnectedEndpointAndBadRouterThrows()
         {
             var sem = new TestServiceEndpointManager(
-                new ServiceEndpoint(ConnectionString1), 
+                new ServiceEndpoint(ConnectionString1),
                 new ServiceEndpoint(ConnectionString2));
 
             var router = new TestEndpointRouter(new ServiceConnectionNotActiveException());
-            var container = new MultiEndpointServiceConnectionContainer("hub",
-                e => new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+            var container = new TestMultiEndpointServiceConnectionContainer("hub",
+                e => new TestServiceConnectionContainer(new List<IServiceConnection> {
                 new TestSimpleServiceConnection(),
                 new TestSimpleServiceConnection(),
                 new TestSimpleServiceConnection(),
@@ -306,9 +319,9 @@ namespace Microsoft.Azure.SignalR.Tests
 
             var router = new TestEndpointRouter();
             var writeTcs = new TaskCompletionSource<object>();
-            var containers = new Dictionary<ServiceEndpoint, TestBaseServiceConnectionContainer>();
-            var container = new MultiEndpointServiceConnectionContainer("hub",
-                e => containers[e] = new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+            var containers = new Dictionary<ServiceEndpoint, TestServiceConnectionContainer>();
+            var container = new TestMultiEndpointServiceConnectionContainer("hub",
+                e => containers[e] = new TestServiceConnectionContainer(new List<IServiceConnection> {
                 new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                 new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                 new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
@@ -344,8 +357,8 @@ namespace Microsoft.Azure.SignalR.Tests
                     new ServiceEndpoint(ConnectionString2));
 
                 var router = new TestEndpointRouter();
-                var container = new MultiEndpointServiceConnectionContainer("hub",
-                    e => new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+                var container = new TestMultiEndpointServiceConnectionContainer("hub",
+                    e => new TestServiceConnectionContainer(new List<IServiceConnection> {
                 new TestSimpleServiceConnection(ServiceConnectionStatus.Disconnected),
                 new TestSimpleServiceConnection(ServiceConnectionStatus.Disconnected),
                 new TestSimpleServiceConnection(ServiceConnectionStatus.Disconnected),
@@ -378,9 +391,9 @@ namespace Microsoft.Azure.SignalR.Tests
                 new ServiceEndpoint(ConnectionString2));
 
                 var router = new TestEndpointRouter();
-                var container = new MultiEndpointServiceConnectionContainer("hub", e =>
+                var container = new TestMultiEndpointServiceConnectionContainer("hub", e =>
                 {
-                    return new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+                    return new TestServiceConnectionContainer(new List<IServiceConnection> {
                         new TestSimpleServiceConnection(ServiceConnectionStatus.Disconnected),
                         new TestSimpleServiceConnection(ServiceConnectionStatus.Disconnected),
                         new TestSimpleServiceConnection(ServiceConnectionStatus.Disconnected),
@@ -409,12 +422,12 @@ namespace Microsoft.Azure.SignalR.Tests
 
                 var router = new TestEndpointRouter();
                 var writeTcs = new TaskCompletionSource<object>();
-                var containers = new Dictionary<ServiceEndpoint, TestBaseServiceConnectionContainer>();
-                var container = new MultiEndpointServiceConnectionContainer("hub", e =>
+                var containers = new Dictionary<ServiceEndpoint, TestServiceConnectionContainer>();
+                var container = new TestMultiEndpointServiceConnectionContainer("hub", e =>
                 {
                     if (string.IsNullOrEmpty(e.Name))
                     {
-                        return containers[e] = new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+                        return containers[e] = new TestServiceConnectionContainer(new List<IServiceConnection> {
                         new TestSimpleServiceConnection(ServiceConnectionStatus.Disconnected, writeAsyncTcs: writeTcs),
                         new TestSimpleServiceConnection(ServiceConnectionStatus.Disconnected, writeAsyncTcs: writeTcs),
                         new TestSimpleServiceConnection(ServiceConnectionStatus.Disconnected, writeAsyncTcs: writeTcs),
@@ -424,7 +437,7 @@ namespace Microsoft.Azure.SignalR.Tests
                         new TestSimpleServiceConnection(ServiceConnectionStatus.Disconnected, writeAsyncTcs: writeTcs),
                         }, e);
                     }
-                    return containers[e] = new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+                    return containers[e] = new TestServiceConnectionContainer(new List<IServiceConnection> {
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
@@ -452,12 +465,12 @@ namespace Microsoft.Azure.SignalR.Tests
 
             var router = new TestEndpointRouter();
             var writeTcs = new TaskCompletionSource<object>();
-            var containers = new Dictionary<ServiceEndpoint, TestBaseServiceConnectionContainer>();
-            var container = new MultiEndpointServiceConnectionContainer("hub", e =>
+            var containers = new Dictionary<ServiceEndpoint, TestServiceConnectionContainer>();
+            var container = new TestMultiEndpointServiceConnectionContainer("hub", e =>
             {
                 if (string.IsNullOrEmpty(e.Name))
                 {
-                    return containers[e] = new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+                    return containers[e] = new TestServiceConnectionContainer(new List<IServiceConnection> {
                         new TestSimpleServiceConnection(ServiceConnectionStatus.Disconnected, writeAsyncTcs: writeTcs),
                         new TestSimpleServiceConnection(ServiceConnectionStatus.Disconnected, writeAsyncTcs: writeTcs),
                         new TestSimpleServiceConnection(ServiceConnectionStatus.Disconnected, writeAsyncTcs: writeTcs),
@@ -467,7 +480,7 @@ namespace Microsoft.Azure.SignalR.Tests
                         new TestSimpleServiceConnection(ServiceConnectionStatus.Disconnected, writeAsyncTcs: writeTcs),
                     }, e);
                 }
-                return containers[e] = new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+                return containers[e] = new TestServiceConnectionContainer(new List<IServiceConnection> {
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
@@ -501,11 +514,11 @@ namespace Microsoft.Azure.SignalR.Tests
                     new ServiceEndpoint(ConnectionString2, EndpointType.Secondary, "online"));
 
                 var router = new NotExistEndpointRouter();
-                var container = new MultiEndpointServiceConnectionContainer("hub", e =>
+                var container = new TestMultiEndpointServiceConnectionContainer("hub", e =>
                 {
                     if (string.IsNullOrEmpty(e.Name))
                     {
-                        return new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+                        return new TestServiceConnectionContainer(new List<IServiceConnection> {
                         new TestSimpleServiceConnection(ServiceConnectionStatus.Disconnected),
                         new TestSimpleServiceConnection(ServiceConnectionStatus.Disconnected),
                         new TestSimpleServiceConnection(ServiceConnectionStatus.Disconnected),
@@ -515,7 +528,7 @@ namespace Microsoft.Azure.SignalR.Tests
                         new TestSimpleServiceConnection(ServiceConnectionStatus.Disconnected),
                     }, e);
                     }
-                    return new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+                    return new TestServiceConnectionContainer(new List<IServiceConnection> {
                         new TestSimpleServiceConnection(),
                         new TestSimpleServiceConnection(),
                         new TestSimpleServiceConnection(),
@@ -541,12 +554,12 @@ namespace Microsoft.Azure.SignalR.Tests
 
             var router = new TestEndpointRouter();
             var writeTcs = new TaskCompletionSource<object>();
-            var containers = new Dictionary<ServiceEndpoint, TestBaseServiceConnectionContainer>();
-            var container = new MultiEndpointServiceConnectionContainer("hub", e =>
+            var containers = new Dictionary<ServiceEndpoint, TestServiceConnectionContainer>();
+            var container = new TestMultiEndpointServiceConnectionContainer("hub", e =>
             {
                 if (string.IsNullOrEmpty(e.Name))
                 {
-                    return containers[e] = new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+                    return containers[e] = new TestServiceConnectionContainer(new List<IServiceConnection> {
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
@@ -556,7 +569,7 @@ namespace Microsoft.Azure.SignalR.Tests
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                     }, e);
                 }
-                return containers[e] = new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+                return containers[e] = new TestServiceConnectionContainer(new List<IServiceConnection> {
                     new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                     new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                     new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
@@ -575,7 +588,7 @@ namespace Microsoft.Azure.SignalR.Tests
             await writeTcs.Task.OrTimeout();
             foreach (var c in containers)
             {
-                c.Value.HandleAck(new AckMessage(1, (int) AckStatus.NotFound));
+                c.Value.HandleAck(new AckMessage(1, (int)AckStatus.NotFound));
             }
             var result = await task.OrTimeout();
             Assert.False(result);
@@ -590,12 +603,12 @@ namespace Microsoft.Azure.SignalR.Tests
 
             var router = new TestEndpointRouter();
             var writeTcs = new TaskCompletionSource<object>();
-            var containers = new Dictionary<ServiceEndpoint, TestBaseServiceConnectionContainer>();
-            var container = new MultiEndpointServiceConnectionContainer("hub", e =>
+            var containers = new Dictionary<ServiceEndpoint, TestServiceConnectionContainer>();
+            var container = new TestMultiEndpointServiceConnectionContainer("hub", e =>
             {
                 if (string.IsNullOrEmpty(e.Name))
                 {
-                    return containers[e] = new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+                    return containers[e] = new TestServiceConnectionContainer(new List<IServiceConnection> {
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
@@ -605,7 +618,7 @@ namespace Microsoft.Azure.SignalR.Tests
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                     }, e);
                 }
-                return containers[e] = new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+                return containers[e] = new TestServiceConnectionContainer(new List<IServiceConnection> {
                     new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                     new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                     new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
@@ -626,7 +639,7 @@ namespace Microsoft.Azure.SignalR.Tests
             {
                 c.Value.HandleAck(new AckMessage(1, (int)AckStatus.Timeout));
             }
-            await Assert.ThrowsAnyAsync<TimeoutException>(async() => await task.OrTimeout());
+            await Assert.ThrowsAnyAsync<TimeoutException>(async () => await task.OrTimeout());
         }
 
         [Fact]
@@ -638,12 +651,12 @@ namespace Microsoft.Azure.SignalR.Tests
 
             var router = new TestEndpointRouter();
             var writeTcs = new TaskCompletionSource<object>();
-            var containers = new Dictionary<ServiceEndpoint, TestBaseServiceConnectionContainer>();
-            var container = new MultiEndpointServiceConnectionContainer("hub", e =>
+            var containers = new Dictionary<ServiceEndpoint, TestServiceConnectionContainer>();
+            var container = new TestMultiEndpointServiceConnectionContainer("hub", e =>
             {
                 if (string.IsNullOrEmpty(e.Name))
                 {
-                    return containers[e] = new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+                    return containers[e] = new TestServiceConnectionContainer(new List<IServiceConnection> {
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
@@ -653,7 +666,7 @@ namespace Microsoft.Azure.SignalR.Tests
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                     }, e, new AckHandler(100, 200));
                 }
-                return containers[e] = new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+                return containers[e] = new TestServiceConnectionContainer(new List<IServiceConnection> {
                     new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                     new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                     new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
@@ -686,12 +699,12 @@ namespace Microsoft.Azure.SignalR.Tests
 
             var router = new TestEndpointRouter();
             var writeTcs = new TaskCompletionSource<object>();
-            var containers = new Dictionary<ServiceEndpoint, TestBaseServiceConnectionContainer>();
-            var container = new MultiEndpointServiceConnectionContainer("hub", e =>
+            var containers = new Dictionary<ServiceEndpoint, TestServiceConnectionContainer>();
+            var container = new TestMultiEndpointServiceConnectionContainer("hub", e =>
             {
                 if (string.IsNullOrEmpty(e.Name))
                 {
-                    return containers[e] = new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+                    return containers[e] = new TestServiceConnectionContainer(new List<IServiceConnection> {
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
@@ -701,7 +714,7 @@ namespace Microsoft.Azure.SignalR.Tests
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                     }, e, new AckHandler(100, 1000));
                 }
-                return containers[e] = new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+                return containers[e] = new TestServiceConnectionContainer(new List<IServiceConnection> {
                     new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                     new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                     new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
@@ -732,12 +745,12 @@ namespace Microsoft.Azure.SignalR.Tests
 
             var router = new TestEndpointRouter();
             var writeTcs = new TaskCompletionSource<object>();
-            var containers = new Dictionary<ServiceEndpoint, TestBaseServiceConnectionContainer>();
-            var container = new MultiEndpointServiceConnectionContainer("hub", e =>
+            var containers = new Dictionary<ServiceEndpoint, TestServiceConnectionContainer>();
+            var container = new TestMultiEndpointServiceConnectionContainer("hub", e =>
             {
                 if (string.IsNullOrEmpty(e.Name))
                 {
-                    return containers[e] = new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+                    return containers[e] = new TestServiceConnectionContainer(new List<IServiceConnection> {
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
@@ -747,7 +760,7 @@ namespace Microsoft.Azure.SignalR.Tests
                         new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                     }, e, new AckHandler(100, 200));
                 }
-                return containers[e] = new TestBaseServiceConnectionContainer(new List<IServiceConnection> {
+                return containers[e] = new TestServiceConnectionContainer(new List<IServiceConnection> {
                     new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                     new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
                     new TestSimpleServiceConnection(writeAsyncTcs: writeTcs),
@@ -771,6 +784,60 @@ namespace Microsoft.Azure.SignalR.Tests
             await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await task).OrTimeout();
         }
 
+        private async Task TestEndpointOfflineInner(IServiceEndpointManager manager, IEndpointRouter router)
+        {
+            var containers = new List<TestServiceConnectionContainer>();
+
+            var container = new TestMultiEndpointServiceConnectionContainer("hub", e =>
+            {
+                var c = new TestServiceConnectionContainer(new List<IServiceConnection>
+                {
+                    new TestSimpleServiceConnection(),
+                    new TestSimpleServiceConnection()
+                });
+                c.MockOffline = true;
+                containers.Add(c);
+                return c;
+            }, manager, router, NullLoggerFactory.Instance);
+
+            foreach (var c in containers)
+            {
+                Assert.False(c.IsOffline);
+            }
+
+            var expected = container.OfflineAsync();
+            var actual = await Task.WhenAny(
+                expected,
+                Task.Delay(TimeSpan.FromSeconds(1))
+            );
+            Assert.Equal(expected, actual);
+
+            foreach (var c in containers)
+            {
+                Assert.True(c.IsOffline);
+            }
+
+        }
+
+        [Fact]
+        public async Task TestSingleEndpointOffline()
+        {
+            var manager = new TestServiceEndpointManager(
+                new ServiceEndpoint(ConnectionString1)
+            );
+            await TestEndpointOfflineInner(manager, null);
+        }
+
+        [Fact]
+        public async Task TestMultiEndpointOffline()
+        {
+            var manager = new TestServiceEndpointManager(
+                new ServiceEndpoint(ConnectionString1),
+                new ServiceEndpoint(ConnectionString2)
+            );
+            await TestEndpointOfflineInner(manager, new TestEndpointRouter());
+        }
+
         private class NotExistEndpointRouter : EndpointRouterDecorator
         {
             public override IEnumerable<ServiceEndpoint> GetEndpointsForConnection(string connectionId, IEnumerable<ServiceEndpoint> endpoints)
@@ -782,11 +849,6 @@ namespace Microsoft.Azure.SignalR.Tests
             {
                 return null;
             }
-        }
-
-        private IServiceConnection CreateServiceConnection(ServerConnectionType type, IConnectionFactory factory)
-        {
-            return new TestSimpleServiceConnection();
         }
 
         private class TestServiceEndpointManager : ServiceEndpointManagerBase

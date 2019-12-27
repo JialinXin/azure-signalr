@@ -16,6 +16,8 @@ namespace Microsoft.Azure.SignalR
 
         Task StopAsync();
 
+        Task OfflineAsync();
+
         Task WriteAsync(ServiceMessage seviceMessage);
 
         Task WriteAckableMessageAsync(ServiceMessage seviceMessage, CancellationToken cancellationToken = default);

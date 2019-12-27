@@ -41,9 +41,9 @@ namespace Microsoft.Azure.SignalR
             for (var i = 0; i < candidates.Count; i++)
             {
                 ref var candidate = ref candidates[i];
+                // Only apply to RouteEndpoint
                 if (candidate.Endpoint is RouteEndpoint)
                 {
-                    // Only apply for Negotiate RouteEndpoint
                     var newEndpoint = _negotiateEndpointCache.GetOrAdd(candidate.Endpoint, CreateNegotiateEndpoint);
                     candidates.ReplaceEndpoint(i, newEndpoint, candidate.Values);
                 }
