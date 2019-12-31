@@ -5,8 +5,8 @@ namespace Microsoft.Azure.SignalR
 {
     public interface IServiceScaleManager
     {
-        Task<IReadOnlyList<ServiceEndpoint>> AddServiceEndpoint(ServiceEndpoint endpoint);
+        Task AddServiceEndpoint(ServiceEndpoint endpoint);
 
-        IReadOnlyList<ServiceEndpoint> RemoveServiceEndpoint(ServiceEndpoint endpoint);
+        Task RemoveServiceEndpoint(ServiceEndpoint endpoint);
     }
 }

@@ -3,6 +3,7 @@
 
 namespace Microsoft.Azure.SignalR
 {
+    using System;
     using ServicePingMessage = Microsoft.Azure.SignalR.Protocol.PingMessage;
 
     public static class ServicePingMessageExtension
@@ -45,14 +46,21 @@ namespace Microsoft.Azure.SignalR
             return false;
         }
 
-        public static bool TryGetServerStatusContext(this ServicePingMessage message, out string serverIdContext)
+        public static bool TryGetServers(this ServicePingMessage message, out string serverIds, long timeout = 160000000)
         {
-            if (message.TryGetValue(ServiceStatusPingMessage.ContextKey, out serverIdContext))
+            if (message.TryGetValue(ServiceStatusPingMessage.ServersKey, out var serverContext ))
             {
-                return true;
+                var values = serverContext.Split(':');
+                if (values.Length == 2 
+                    && long.TryParse(values[1], out var updatedTime) 
+                    && DateTime.UtcNow.Ticks - updatedTime <= timeout)
+                {
+                    serverIds = values[0];
+                    return true;
+                }
             }
 
-            serverIdContext = null;
+            serverIds = null;
             return false;
         }
     }

@@ -87,7 +87,7 @@ namespace Microsoft.Azure.SignalR
             }
         }
 
-        public abstract string ServiceStatus { get; }
+        public abstract string ServerList { get; }
 
         protected ServiceConnectionContainerBase(IServiceConnectionFactory serviceConnectionFactory,
             int minConnectionCount, HubServiceEndpoint endpoint,

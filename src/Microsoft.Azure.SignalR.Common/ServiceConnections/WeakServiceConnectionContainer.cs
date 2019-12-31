@@ -22,9 +22,9 @@ namespace Microsoft.Azure.SignalR.Common.ServiceConnections
         // active ones are those whose client connections connected to the whole endpoint
         private volatile bool _active = true;
 
-        private volatile string _serviceStatus = string.Empty;
+        private volatile string _serverList = string.Empty;
 
-        public override string ServiceStatus => _serviceStatus;
+        public override string ServerList => _serverList;
 
         protected override ServiceConnectionType InitialConnectionType => ServiceConnectionType.Weak;
 
@@ -41,9 +41,9 @@ namespace Microsoft.Azure.SignalR.Common.ServiceConnections
                 _active = GetServiceStatus(status.IsActive, CheckWindow, CheckTimeSpan);
                 Log.ReceivedServiceStatusPing(Logger, status.IsActive, Endpoint);
             }
-            else if (pingMessage.TryGetValue(ServiceStatusPingMessage.ContextKey, out var serviceStatus) && !string.IsNullOrEmpty(serviceStatus))
+            else if (pingMessage.TryGetServers(out var serverList) && !string.IsNullOrEmpty(serverList))
             {
-                _serviceStatus = serviceStatus;
+                _serverList = serverList;
             }
 
             return Task.CompletedTask;

@@ -10,7 +10,6 @@ namespace Microsoft.Azure.SignalR
     internal class ServiceScaleManager : IServiceScaleManager
     {
         private readonly IServiceEndpointManager _serviceEndpointManager;
-        private readonly IClientConnectionManager _clientConnectionManager;
         private readonly ILoggerFactory _loggerFactory;
         private readonly ILogger _logger;
 
@@ -26,7 +25,6 @@ namespace Microsoft.Azure.SignalR
             _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory)); ;
             _logger = loggerFactory?.CreateLogger<ServiceScaleManager>();
             _serviceEndpointManager = serviceEndpointManager;
-            _clientConnectionManager = clientConnectionManager;
 
             OnChange(optionsMonitor.CurrentValue);
             optionsMonitor.OnChange(OnChange);
@@ -54,7 +52,7 @@ namespace Microsoft.Azure.SignalR
             //return _serviceEndpointManager.GetEndpoints(_serviceEndpointManager.GetHubs().FirstOrDefault());
         }
 
-        public IReadOnlyList<ServiceEndpoint> RemoveServiceEndpoint(ServiceEndpoint serviceEndpoint)
+        public Task RemoveServiceEndpoint(ServiceEndpoint serviceEndpoint)
         {
             if (!_serviceEndpointManager.Endpoints.Contains(serviceEndpoint))
             {
@@ -73,8 +71,8 @@ namespace Microsoft.Azure.SignalR
                 // close server connection
 
             }
-
-            return _serviceEndpointManager.GetEndpoints(_serviceEndpointManager.GetHubs().FirstOrDefault());
+            return Task.CompletedTask;
+            //return _serviceEndpointManager.GetEndpoints(_serviceEndpointManager.GetHubs().FirstOrDefault());
         }
 
         private void OnChange(ServiceOptions options)
@@ -160,11 +158,6 @@ namespace Microsoft.Azure.SignalR
                 result.Add(container.WriteAckableMessageAsync(ShutdownEndpointPingMessage.GetPingMessage()).Result);
             }
             return result.ToArray();
-        }
-
-        Task<IReadOnlyList<ServiceEndpoint>> IServiceScaleManager.AddServiceEndpoint(ServiceEndpoint endpoint)
-        {
-            throw new NotImplementedException();
         }
 
         private static class Log

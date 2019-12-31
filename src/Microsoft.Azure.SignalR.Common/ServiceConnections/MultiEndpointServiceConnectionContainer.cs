@@ -147,14 +147,14 @@ namespace Microsoft.Azure.SignalR
 
         public bool IsStable => CheckHubServiceEndpoints();
 
-        string IServiceConnectionContainer.ServiceStatus => throw new NotImplementedException();
+        string IServiceConnectionContainer.ServerList => throw new NotImplementedException();
 
         private bool CheckHubServiceEndpoints()
         {
             var endpointsStatus = new List<string>();
             foreach (var item in Connections)
             {
-                endpointsStatus.Add(item.Value.ServiceStatus);
+                endpointsStatus.Add(item.Value.ServerList);
             }
             return endpointsStatus.Distinct().Count() == 1;
         }
