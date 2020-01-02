@@ -25,6 +25,7 @@ namespace ChatSample
         {
             Console.WriteLine($"{Context.ConnectionId} connected.");
             await base.OnConnectedAsync();
+            var days = TimeSpan.FromDays(2);
         }
 
         public override async Task OnDisconnectedAsync(Exception e)

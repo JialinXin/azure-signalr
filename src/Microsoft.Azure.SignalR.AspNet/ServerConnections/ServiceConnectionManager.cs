@@ -26,6 +26,8 @@ namespace Microsoft.Azure.SignalR.AspNet
         public Task ConnectionInitializedTask => Task.WhenAll(from connection in GetConnections()
                                                               select connection.ConnectionInitializedTask);
 
+        public string ServiceStatus => throw new NotImplementedException();
+
         public ServiceConnectionManager(string appName, IReadOnlyList<string> hubs)
         {
             _hubs = hubs ?? Array.Empty<string>();

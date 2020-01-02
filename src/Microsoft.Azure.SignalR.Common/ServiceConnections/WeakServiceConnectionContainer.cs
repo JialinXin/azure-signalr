@@ -13,19 +13,18 @@ namespace Microsoft.Azure.SignalR.Common.ServiceConnections
     internal class WeakServiceConnectionContainer : ServiceConnectionContainerBase
     {
         private const int CheckWindow = 5;
-        private static readonly TimeSpan DefaultGetServiceStatusInterval = TimeSpan.FromSeconds(10);
-        private static readonly long DefaultGetServiceStatusTicks = DefaultGetServiceStatusInterval.Seconds * Stopwatch.Frequency;
         private static readonly TimeSpan CheckTimeSpan = TimeSpan.FromMinutes(10);
 
         private readonly object _lock = new object();
         private int _inactiveCount;
         private DateTime? _firstInactiveTime;
-        private long _lastSendTimestamp;
 
         // active ones are those whose client connections connected to the whole endpoint
         private volatile bool _active = true;
 
-        private readonly TimerAwaitable _timer;
+        private volatile string _serverList = string.Empty;
+
+        public override string ServerList => _serverList;
 
         protected override ServiceConnectionType InitialConnectionType => ServiceConnectionType.Weak;
 
@@ -33,7 +32,6 @@ namespace Microsoft.Azure.SignalR.Common.ServiceConnections
             int fixedConnectionCount, HubServiceEndpoint endpoint, ILogger logger)
             : base(serviceConnectionFactory, fixedConnectionCount, endpoint, logger: logger)
         {
-            _timer = StartServiceStatusPingTimer();
         }
 
         public override Task HandlePingAsync(PingMessage pingMessage)
@@ -42,6 +40,10 @@ namespace Microsoft.Azure.SignalR.Common.ServiceConnections
             {
                 _active = GetServiceStatus(status.IsActive, CheckWindow, CheckTimeSpan);
                 Log.ReceivedServiceStatusPing(Logger, status.IsActive, Endpoint);
+            }
+            else if (pingMessage.TryGetServers(out var serverList) && !string.IsNullOrEmpty(serverList))
+            {
+                _serverList = serverList;
             }
 
             return Task.CompletedTask;
@@ -96,48 +98,11 @@ namespace Microsoft.Azure.SignalR.Common.ServiceConnections
             }
         }
 
-        private TimerAwaitable StartServiceStatusPingTimer()
-        {
-            Log.StartingServiceStatusPingTimer(Logger, DefaultGetServiceStatusInterval);
-
-            _lastSendTimestamp = Stopwatch.GetTimestamp();
-            var timer = new TimerAwaitable(DefaultGetServiceStatusInterval, DefaultGetServiceStatusInterval);
-            _ = ServiceStatusPingAsync(timer);
-
-            return timer;
-        }
-
-        private async Task ServiceStatusPingAsync(TimerAwaitable timer)
-        {
-            using (timer)
-            {
-                timer.Start();
-
-                while (await timer)
-                {
-                    try
-                    {
-                        // Check if last send time is longer than default keep-alive ticks and then send ping
-                        if (Stopwatch.GetTimestamp() - Interlocked.Read(ref _lastSendTimestamp) > DefaultGetServiceStatusTicks)
-                        {
-                            await WriteAsync(ServiceStatusPingMessage.ActiveServicePingMessage);
-                            Interlocked.Exchange(ref _lastSendTimestamp, Stopwatch.GetTimestamp());
-                            Log.SentServiceStatusPing(Logger);
-                        }
-                    }
-                    catch (Exception e)
-                    {
-                        Log.FailedSendingServiceStatusPing(Logger, e);
-                    }
-                }
-            }
-        }
-
         protected override void Dispose(bool disposing)
         {
             if (disposing)
             {
-                _timer.Stop();
+                //_timer.Stop();
             }
 
             base.Dispose(disposing);

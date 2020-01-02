@@ -3,7 +3,9 @@
 
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System;
 
 namespace ChatSample
 {
@@ -22,6 +24,19 @@ namespace ChatSample
                     logging.AddTimedConsole();
                     logging.AddDebug();
                 })
-                .UseStartup<Startup>();
+            .ConfigureAppConfiguration(ConfigurationConfig)
+            .UseStartup<Startup>();
+
+        public static readonly Action<WebHostBuilderContext, IConfigurationBuilder> ConfigurationConfig =
+            (context, builder) =>
+            {
+                builder
+                    .SetBasePath(context.HostingEnvironment.ContentRootPath)
+                    .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+                    .AddJsonFile($"appsettings.{context.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+                    .AddEnvironmentVariables()
+                    .AddJsonFile($"endpoints.json", optional: true, reloadOnChange: true);
+            };
+
     }
 }

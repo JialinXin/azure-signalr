@@ -28,6 +28,7 @@ namespace BlazorAppSample
         {
             services.AddRazorPages();
             services.AddServerSideBlazor();
+            services.AddSignalR().AddAzureSignalR("Endpoint=https://jixinuk.service.signalr.net;AccessKey=GAh6PWaM9AD/Z34zgqYjdaj78nurzD6cV+gSi98WMA8=;Version=1.0;");
             services.AddSingleton<WeatherForecastService>();
         }
 
@@ -53,7 +54,8 @@ namespace BlazorAppSample
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapBlazorHub();
-                endpoints.MapFallbackToPage("/_Host");
+                //endpoints.MapFallbackToPage("/_Host");
+                endpoints.MapFallbackToController("Index", "Home");
             });
         }
     }

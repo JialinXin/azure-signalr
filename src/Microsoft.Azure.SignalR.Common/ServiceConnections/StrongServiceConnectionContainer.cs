@@ -17,6 +17,10 @@ namespace Microsoft.Azure.SignalR
         // The lock is only used to lock the on-demand part
         private readonly object _lock = new object();
 
+        private volatile string _serverList = string.Empty;
+
+        public override string ServerList => _serverList;
+
         public StrongServiceConnectionContainer(IServiceConnectionFactory serviceConnectionFactory,
             int fixedConnectionCount, HubServiceEndpoint endpoint, ILogger logger) : base(serviceConnectionFactory, fixedConnectionCount, endpoint, logger: logger)
         {
@@ -29,6 +33,10 @@ namespace Microsoft.Azure.SignalR
             {
                 var connection = CreateOnDemandServiceConnection();
                 return StartCoreAsync(connection, target);
+            }
+            if (pingMessage.TryGetServers(out string serverList) && !string.IsNullOrEmpty(serverList))
+            {
+                _serverList = serverList;
             }
             return Task.CompletedTask;
         }

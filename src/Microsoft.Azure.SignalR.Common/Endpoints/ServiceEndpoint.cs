@@ -8,11 +8,11 @@ namespace Microsoft.Azure.SignalR
 {
     public class ServiceEndpoint
     {
-        public string ConnectionString { get; }
+        public string ConnectionString { get; set; }
 
-        public EndpointType EndpointType { get; }
+        public EndpointType EndpointType { get; set; }
 
-        public string Name { get; }
+        public string Name { get; set; }
 
         /// <summary>
         /// Initial status as Online so that when the app server first starts, it can accept incoming negotiate requests, as for backward compatability

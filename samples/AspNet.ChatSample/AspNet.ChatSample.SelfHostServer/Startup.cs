@@ -3,6 +3,7 @@
 
 using System.Diagnostics;
 using Microsoft.AspNet.SignalR;
+using Microsoft.Azure.SignalR;
 using Microsoft.Owin;
 using Microsoft.Owin.Cors;
 using Owin;
@@ -17,7 +18,11 @@ namespace AspNet.ChatSample.SelfHostServer
         {
             // app.MapSignalR();
             app.UseCors(CorsOptions.AllowAll);
-            app.MapAzureSignalR(GetType().FullName);
+            app.MapAzureSignalR(GetType().FullName, options => {
+                options.Endpoints = new Microsoft.Azure.SignalR.ServiceEndpoint[] {
+                    new ServiceEndpoint("Endpoint=https://jixineastus2.service.signalr.net;AccessKey=EjRcwG0sQq3UNyfykUrN+assmIjSTsnfmCLE5f2U94s=;Version=1.0;"),
+                    new ServiceEndpoint("Endpoint=https://jixinuk.service.signalr.net;AccessKey=GAh6PWaM9AD/Z34zgqYjdaj78nurzD6cV+gSi98WMA8=;Version=1.0;")};
+            });
         }
     }
 }

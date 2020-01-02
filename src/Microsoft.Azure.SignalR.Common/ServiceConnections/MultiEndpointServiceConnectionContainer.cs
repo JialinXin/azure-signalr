@@ -13,15 +13,19 @@ using Microsoft.Extensions.Logging;
 
 namespace Microsoft.Azure.SignalR
 {
-    internal class MultiEndpointServiceConnectionContainer : IServiceConnectionContainer
+    internal class MultiEndpointServiceConnectionContainer : IMultiEndpointServiceConnectionContainer
     {
         private readonly IMessageRouter _router;
         private readonly ILogger _logger;
         private readonly IServiceConnectionContainer _inner;
+        private readonly IServiceConnectionFactory _serviceConnectionFactory;
+        private readonly int _connectionCount;
 
-        private IReadOnlyList<HubServiceEndpoint> _endpoints;
+        public IReadOnlyList<HubServiceEndpoint> HubEndpoints { get; internal set; }
 
-        public Dictionary<ServiceEndpoint, IServiceConnectionContainer> Connections { get; }
+        public Dictionary<ServiceEndpoint, IServiceConnectionContainer> Connections { get; internal set; } = new Dictionary<ServiceEndpoint, IServiceConnectionContainer>();
+
+        private bool _needRouter => HubEndpoints.Count > 1;
 
         public MultiEndpointServiceConnectionContainer(string hub,
                                                        Func<HubServiceEndpoint, IServiceConnectionContainer> generator,
@@ -37,18 +41,22 @@ namespace Microsoft.Azure.SignalR
             _logger = loggerFactory?.CreateLogger<MultiEndpointServiceConnectionContainer>() ?? throw new ArgumentNullException(nameof(loggerFactory));
 
             // provides a copy to the endpoint per container
-            _endpoints = endpointManager.GetEndpoints(hub);
+            HubEndpoints = endpointManager.GetEndpoints(hub);
 
-            if (_endpoints.Count == 1)
-            {
-                _inner = generator(_endpoints[0]);
-            }
-            else
+            if (_needRouter)
             {
                 // router is required when endpoints > 1
                 _router = router ?? throw new ArgumentNullException(nameof(router));
-                Connections = _endpoints.ToDictionary(s => (ServiceEndpoint)s, s => generator(s));
+                Connections = HubEndpoints.ToDictionary(s => (ServiceEndpoint)s, s => generator(s));
             }
+            else
+            {
+                _inner = generator(HubEndpoints[0]);
+                Connections.Add(HubEndpoints[0], _inner);
+            }
+
+            // save current container to provide scale required information
+            endpointManager.AddServiceConnectionContainer(hub, this);
         }
 
         public MultiEndpointServiceConnectionContainer(
@@ -67,6 +75,10 @@ namespace Microsoft.Azure.SignalR
                 loggerFactory
                 )
         {
+            _serviceConnectionFactory = serviceConnectionFactory;
+            _connectionCount = count;
+            // Always add default router for potential scale needed.
+            _router = router;
         }
 
         public IEnumerable<ServiceEndpoint> GetOnlineEndpoints()
@@ -86,13 +98,44 @@ namespace Microsoft.Azure.SignalR
             }
         }
 
+        public bool AddServiceEndpoint(HubServiceEndpoint endpoint, ILoggerFactory loggerFactory)
+        {
+            // Router is required when endpoints > 1
+            if (_router == null)
+            {
+                throw new ArgumentNullException(nameof(_router));
+            }
+
+            try
+            {
+                // Create service connections for the new endpoint
+                var connectionContainer = CreateContainer(_serviceConnectionFactory, endpoint, _connectionCount, loggerFactory);
+
+                // Add endpoint to current container and Connection to enable routing
+                var endpoints = HubEndpoints.ToList();
+                endpoints.Add(endpoint);
+                HubEndpoints = endpoints.AsReadOnly();
+                Connections.Add(endpoint, connectionContainer);
+
+                // Start service connection
+                _ = connectionContainer.StartAsync();
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
         public ServiceConnectionStatus Status => throw new NotSupportedException();
+
+        public HubServiceEndpointStatus ServiceStatus => throw new NotSupportedException();
 
         public Task ConnectionInitializedTask
         {
             get
             {
-                if (_inner != null)
+                if (!_needRouter)
                 {
                     return _inner.ConnectionInitializedTask;
                 }
@@ -102,9 +145,23 @@ namespace Microsoft.Azure.SignalR
             }
         }
 
+        public bool IsStable => CheckHubServiceEndpoints();
+
+        string IServiceConnectionContainer.ServerList => throw new NotImplementedException();
+
+        private bool CheckHubServiceEndpoints()
+        {
+            var endpointsStatus = new List<string>();
+            foreach (var item in Connections)
+            {
+                endpointsStatus.Add(item.Value.ServerList);
+            }
+            return endpointsStatus.Distinct().Count() == 1;
+        }
+
         public Task StartAsync()
         {
-            if (_inner != null)
+            if (!_needRouter)
             {
                 return _inner.StartAsync();
             }
@@ -118,7 +175,7 @@ namespace Microsoft.Azure.SignalR
 
         public Task StopAsync()
         {
-            if (_inner != null)
+            if (!_needRouter)
             {
                 return _inner.StopAsync();
             }
@@ -144,7 +201,7 @@ namespace Microsoft.Azure.SignalR
 
         public Task WriteAsync(ServiceMessage serviceMessage)
         {
-            if (_inner != null)
+            if (!_needRouter)
             {
                 return _inner.WriteAsync(serviceMessage);
             }
@@ -153,7 +210,7 @@ namespace Microsoft.Azure.SignalR
 
         public async Task<bool> WriteAckableMessageAsync(ServiceMessage serviceMessage, CancellationToken cancellationToken = default)
         {
-            if (_inner != null)
+            if (!_needRouter)
             {
                 return await _inner.WriteAckableMessageAsync(serviceMessage, cancellationToken);
             }
@@ -183,7 +240,7 @@ namespace Microsoft.Azure.SignalR
 
         internal IEnumerable<ServiceEndpoint> GetRoutedEndpoints(ServiceMessage message)
         {
-            var endpoints = _endpoints;
+            var endpoints = HubEndpoints;
             switch (message)
             {
                 case BroadcastDataMessage bdm:

@@ -45,7 +45,6 @@ namespace Microsoft.Azure.SignalR
                 if (candidate.Endpoint is RouteEndpoint)
                 {
                     var newEndpoint = _negotiateEndpointCache.GetOrAdd(candidate.Endpoint, CreateNegotiateEndpoint);
-
                     candidates.ReplaceEndpoint(i, newEndpoint, candidate.Values);
                 }
             }

@@ -22,5 +22,7 @@ namespace Microsoft.Azure.SignalR
         ServiceConnectionStatus Status { get; }
 
         Task ConnectionInitializedTask { get; }
+
+        string ServerList { get; }
     }
 }
